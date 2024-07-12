@@ -1,0 +1,67 @@
+name: wasm-miniscript
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+      - rel/**
+
+  workflow_dispatch:
+
+jobs:
+  unit-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup node:${{ matrix.node-version }}
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
+          override: true
+
+      - name: Install wasm-pack
+        run: |
+          cargo install wasm-pack
+
+      - name: Build Info
+        run: |
+          echo "node $(node --version)"
+          echo "npm $(npm --version)"
+          echo "yarn $(yarn --version)"
+          git --version
+          echo "base ref $GITHUB_BASE_REF"
+          echo "head ref $GITHUB_HEAD_REF"
+
+      - name: Fetch Base Ref
+        run: |
+          git fetch origin $GITHUB_BASE_REF
+
+      - name: Install Packages
+        run: yarn install --with-frozen-lockfile
+
+      - name: build packages
+        run: yarn lerna run build
+
+      - name: Check Source Code Formatting
+        run: yarn lerna exec 'prettier --check .'
+
+      - name: Unit Test
+        run: yarn lerna run test
