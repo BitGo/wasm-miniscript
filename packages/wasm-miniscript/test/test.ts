@@ -20,7 +20,7 @@ function removeChecksum(descriptor: string): string {
 describe("Descriptor fixtures", function () {
   fixtures.valid.forEach((fixture, i) => {
     it("should parse fixture " + i, function () {
-      const descriptor = descriptorFromString(fixture.descriptor);
+      const descriptor = descriptorFromString(fixture.descriptor, "string");
       assert.doesNotThrow(() => descriptor.node());
       let descriptorString = descriptor.toString();
       if (fixture.checksumRequired === false) {
@@ -32,6 +32,20 @@ describe("Descriptor fixtures", function () {
         expected = expected.replace("and_n", "and_b");
       }
       assert.strictEqual(descriptorString, expected);
+
+      assert.doesNotThrow(() =>
+        descriptorFromString(fixture.descriptor, "derivable").atDerivationIndex(0),
+      );
+
+      const nonDerivable = [33, 34, 35, 41, 42, 43];
+      if (nonDerivable.includes(i)) {
+        // FIXME(BTC-1337): xprvs with hardened derivations are not supported yet
+        console.log("Skipping encoding test for fixture", fixture.descriptor, i);
+      } else {
+        assert.doesNotThrow(() =>
+          descriptorFromString(fixture.descriptor, "derivable").atDerivationIndex(0).encode(),
+        );
+      }
     });
   });
 });
