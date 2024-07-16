@@ -10,10 +10,7 @@ type Miniscript = {
 
 type ScriptContext = "tap" | "segwitv0" | "legacy";
 
-export function miniscriptFromString(
-  script: string,
-  scriptContext: ScriptContext,
-): Miniscript {
+export function miniscriptFromString(script: string, scriptContext: ScriptContext): Miniscript {
   return wasm.miniscript_from_string(script, scriptContext);
 }
 
