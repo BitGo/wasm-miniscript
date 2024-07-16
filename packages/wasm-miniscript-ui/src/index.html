@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>Wasm-Miniscript Playground</title>
+</head>
+
+<body>
+<div class="container">
+  <div class="corner-div top-left">
+    <div class="toolbar">
+      <label for="input-type">Type</label>
+      <select id="input-type"></select>
+
+      <label for="input-script-context">Script Context</label>
+      <select id="input-script-context"></select>
+
+      <label for="input-example">Example</label>
+      <select id="input-example"></select>
+    </div>
+    <textarea id="edit-descriptor" spellcheck="false"></textarea>
+  </div>
+  <div class="corner-div top-right">
+    <div class="toolbar">
+      <label for="input-bitcoin-script">Type</label>
+      <select id="input-bitcoin-script"></select>
+    </div>
+    <textarea id="edit-bitcoin-script" spellcheck="false"></textarea>
+  </div>
+  <div class="corner-div bottom-left">
+    <div id="status">Status</div>
+  </div>
+  <div class="corner-div bottom-right">
+    <div id="output-ast">AST</div>
+  </div>
+</div>
+</body>
+</html>

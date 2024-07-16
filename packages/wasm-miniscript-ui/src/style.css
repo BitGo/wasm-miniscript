@@ -1,0 +1,83 @@
+body,
+html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: Arial, sans-serif;
+  font-size: 12pt;
+}
+
+textarea {
+  font-family: monospace;
+  word-wrap: anywhere;
+  font-size: 12pt;
+  resize: none;
+}
+
+
+/* CSS for layout with 4 divs, one in each corner */
+.container {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+  height: 100%;
+}
+
+.corner-div {
+  width: 50%;
+  height: 50%;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  padding: 5px;
+}
+
+/* Top left */
+.top-left {
+  align-self: flex-start;
+}
+
+/* Top right */
+.top-right {
+  align-self: flex-start;
+}
+
+/* Bottom left */
+.bottom-left {
+  align-self: flex-end;
+}
+
+/* Bottom right */
+.bottom-right {
+  align-self: flex-end;
+}
+
+
+#status,
+#output-ast
+{
+  font-family: monospace;
+  word-wrap: break-word;
+  overflow: auto;
+}
+
+#output-ast li {
+  word-wrap: break-word;
+}
+
+
+.corner-div {
+  display: flex;
+  flex-direction: column;
+}
+
+
+.toolbar {
+  width: 100%;
+  background: #eee;
+  height: 32px;
+}
+
+textarea {
+  width: 100%;
+  flex: 1;
+}

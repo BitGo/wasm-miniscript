@@ -1,0 +1,43 @@
+{
+  "name": "@bitgo/wasm-miniscript-ui",
+  "version": "0.1.0",
+  "description": "Web frontend for wasm-miniscript",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BitGo/wasm-miniscript.git"
+  },
+  "license": "MIT",
+  "author": "BitGo Inc.",
+  "main": "./dist/src/index.js",
+  "private": true,
+  "scripts": {
+    "build": "yarn tsc --build --incremental --verbose .",
+    "dev": "webpack serve --mode development --progress --hot --config ./webpack.config.js",
+    "fmt": "prettier --write .",
+    "check-fmt": "prettier --check '{src,webpack}/**/*.{tsx,ts,js}'",
+    "clean": "rm -r ./dist",
+    "lint": "eslint --quiet .",
+    "precommit": "yarn lint-staged"
+  },
+  "dependencies": {
+    "@bitgo/wasm-miniscript": "^0.1.0",
+    "fp-ts": "^2.16.8",
+    "io-ts": "^2.2.21",
+    "io-ts-types": "^0.5.19"
+  },
+  "devDependencies": {
+    "css-loader": "^7.1.2",
+    "html-webpack-plugin": "^5.6.0",
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.1.2",
+    "webpack": "^5.92.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.0.4"
+  },
+  "lint-staged": {
+    "*.{js,ts,tsx}": [
+      "yarn prettier --write",
+      "yarn eslint --fix"
+    ]
+  }
+}
