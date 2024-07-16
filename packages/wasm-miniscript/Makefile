@@ -1,11 +1,15 @@
-.PHONY: build-image build-wasm enter-image clean-container clean-image
+.PHONY: all build-image build-wasm enter-image clean-container clean-image
 
 CONTAINER_ENGINE ?= docker
+
+all: build-image build-wasm
 
 build-image:
 	$(CONTAINER_ENGINE) build --tag wasm-builder .
 
 build-wasm:
+	rm -rf dist/ js/wasm/
+	$(CONTAINER_ENGINE) rm -f wasm-builder-container || true
 	$(CONTAINER_ENGINE) run -v $(shell pwd)/src:/usr/src/app/src \
 	--name wasm-builder-container wasm-builder \
 	npm run build
