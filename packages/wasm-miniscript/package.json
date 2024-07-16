@@ -3,30 +3,32 @@
   "version": "0.1.0",
   "lint-staged": "MIT",
   "files": [
-    "js/wasm/wasm_miniscript_bg.wasm",
-    "js/wasm/wasm_miniscript.js",
-    "js/wasm/wasm_miniscript_bg.js",
-    "js/wasm/wasm_miniscript.d.ts",
-    "js/index.js"
+    "dist/wasm/wasm_miniscript_bg.wasm",
+    "dist/wasm/wasm_miniscript.js",
+    "dist/wasm/wasm_miniscript_bg.js",
+    "dist/wasm/wasm_miniscript.d.ts",
+    "dist/index.js"
   ],
-  "main": "js/index.js",
-  "types": "js/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "sideEffects": [
-    "./js/wasm/wasm_miniscript.js"
+    "./dist/wasm/wasm_miniscript.js"
   ],
   "browser": {
-    "./js/index.js": "./js/browser/index.js",
-    "./js/wasm/wasm_miniscript_bg.wasm": "./js/browser/wasm/wasm_miniscript_bg.wasm",
-    "./js/wasm/wasm_miniscript.js": "./js/browser/wasm/wasm_miniscript.js",
-    "./js/wasm/wasm_miniscript_bg.js": "./js/browser/wasm/wasm_miniscript_bg.js",
-    "./js/wasm/wasm_miniscript.d.ts": "./js/browser/wasm/wasm_miniscript.d.ts"
+    "./dist/index.js": "./dist/browser/index.js",
+    "./dist/index.d.ts": "./dist/browser/index.d.ts",
+    "./dist/wasm/wasm_miniscript_bg.wasm": "./dist/browser/wasm/wasm_miniscript_bg.wasm",
+    "./dist/wasm/wasm_miniscript.js": "./dist/browser/wasm/wasm_miniscript.js",
+    "./dist/wasm/wasm_miniscript_bg.js": "./dist/browser/wasm/wasm_miniscript_bg.js",
+    "./dist/wasm/wasm_miniscript.d.ts": "./dist/browser/wasm/wasm_miniscript.d.ts"
   },
   "scripts": {
     "test": "mocha --recursive test",
-    "build:wasm-nodejs": "wasm-pack build --out-dir js/wasm --no-pack --target nodejs --weak-refs",
-    "build:wasm-browser": "wasm-pack build --out-dir js/browser/wasm --no-pack --target browser --weak-refs",
-    "build:wasm": "npm run build:wasm-nodejs && npm run build:wasm-browser",
-    "build:ts-browser": "tsc --module es2020 --target es2020 --outDir js/browser",
+    "build:wasm-dev": "wasm-pack build --out-dir js/wasm --no-pack --target nodejs --weak-refs",
+    "build:wasm-nodejs": "wasm-pack build --out-dir dist/wasm --no-pack --target nodejs --weak-refs",
+    "build:wasm-browser": "wasm-pack build --out-dir dist/browser/wasm --no-pack --target browser --weak-refs",
+    "build:wasm": "npm run build:wasm-dev && npm run build:wasm-nodejs && npm run build:wasm-browser",
+    "build:ts-browser": "tsc --module es2020 --target es2020 --outDir dist/browser",
     "build:ts": "tsc && npm run build:ts-browser",
     "build": "npm run build:wasm && npm run build:ts"
   },
