@@ -24,7 +24,7 @@ function removeChecksum(descriptor: string): string {
 describe("Descriptor fixtures", function () {
   fixtures.valid.forEach((fixture, i) => {
     it("should parse fixture " + i, function () {
-      const descriptor = descriptorFromString(fixture.descriptor);
+      const descriptor = descriptorFromString(fixture.descriptor, "string");
       assert.doesNotThrow(() => descriptor.node());
       let descriptorString = descriptor.toString();
       if (fixture.checksumRequired === false) {
