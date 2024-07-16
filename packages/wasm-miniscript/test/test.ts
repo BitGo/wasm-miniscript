@@ -1,9 +1,5 @@
 import * as assert from "assert";
-import {
-  descriptorFromString,
-  miniscriptFromString,
-  miniscriptFromBitcoinScript,
-} from "../js";
+import { descriptorFromString, miniscriptFromString, miniscriptFromBitcoinScript } from "../js";
 import { fixtures } from "./descriptorFixtures";
 
 describe("AST", function () {
