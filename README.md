@@ -9,3 +9,12 @@ to WebAssembly. It allows you to use Miniscript in NodeJS and in the browser.
 - [Rust](https://www.rust-lang.org/) nightly
 - [wasm-pack](https://rustwasm.github.io/wasm-pack/) (install with `cargo install wasm-pack`)
 - [NodeJS](https://nodejs.org/en/)
+
+# Building
+
+You can use the Docker image / Makefile to build the wasm files:
+
+```bash
+make build-image
+make build-wasm
+```
