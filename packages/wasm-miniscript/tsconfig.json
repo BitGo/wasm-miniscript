@@ -6,8 +6,9 @@
     "esModuleInterop": true,
     "allowJs": true,
     "skipLibCheck": true,
-    "declaration": true
+    "declaration": true,
+    "outDir": "dist"
   },
-  "include": ["./js/**/*"],
-  "exclude": ["node_modules", "./js/wasm/**/*", "./js/browser/**/*"]
+  "include": ["./js/index.ts"],
+  "exclude": ["node_modules", "./js/wasm/**/*"]
 }

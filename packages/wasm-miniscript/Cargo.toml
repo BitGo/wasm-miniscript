@@ -9,4 +9,4 @@ crate-type = ["cdylib"]
 [dependencies]
 wasm-bindgen = "0.2"
 js-sys = "0.3"
-miniscript = "12"
+miniscript = { version = "12.1.0", features = ["no-std"] }
