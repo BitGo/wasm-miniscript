@@ -18,8 +18,8 @@ function removeChecksum(descriptor: string): string {
 }
 
 describe("Descriptor fixtures", function () {
-  fixtures.valid.forEach((fixture, i) => {
-    it("should parse fixture " + i, function () {
+  fixtures.valid.forEach((fixture, index) => {
+    it("should parse fixture " + index, function () {
       const descriptor = descriptorFromString(fixture.descriptor, "string");
       assert.doesNotThrow(() => descriptor.node());
       let descriptorString = descriptor.toString();
@@ -27,7 +27,7 @@ describe("Descriptor fixtures", function () {
         descriptorString = removeChecksum(descriptorString);
       }
       let expected = fixture.descriptor;
-      if (i === 56 || i === 57) {
+      if (index === 56 || index === 57) {
         // for reasons I do not really understand, teh `a:and_n` gets converted into `a:and_b` for these
         expected = expected.replace("and_n", "and_b");
       }
@@ -38,9 +38,9 @@ describe("Descriptor fixtures", function () {
       );
 
       const nonDerivable = [33, 34, 35, 41, 42, 43];
-      if (nonDerivable.includes(i)) {
+      if (nonDerivable.includes(index)) {
         // FIXME(BTC-1337): xprvs with hardened derivations are not supported yet
-        console.log("Skipping encoding test for fixture", fixture.descriptor, i);
+        console.log("Skipping encoding test for fixture", fixture.descriptor, index);
       } else {
         assert.doesNotThrow(() =>
           descriptorFromString(fixture.descriptor, "derivable").atDerivationIndex(0).encode(),
