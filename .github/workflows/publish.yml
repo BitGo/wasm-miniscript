@@ -1,0 +1,63 @@
+name: Publish @wasm-miniscript
+on:
+  workflow_dispatch:
+   push:
+     branches:
+       - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  publish:
+    name: Publish Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
+          override: true
+
+      - name: Install wasm-pack
+        run: |
+          cargo install wasm-pack
+
+      - name: Build Info
+        run: |
+          echo "node $(node --version)"
+          echo "npm $(npm --version)"
+          echo "yarn $(yarn --version)"
+          echo "rust $(rustup --version)"
+          git --version
+
+      - name: Configure Git & NPM
+        run: |
+          git config --global user.name 'Git bot'
+          git config --global user.email 'bot@noreply.github.com'
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+          git checkout -b release-$(git rev-parse --short HEAD)
+          echo "email=${{ secrets.NPM_EMAIL }}" > .npmrc
+          echo "@bitgo:registry=https://registry.npmjs.org" >> .npmrc
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" >> .npmrc
+          echo "//registry.npmjs.org/:always-auth=true" >> .npmrc
+
+      - name: Install Packages
+        run: yarn install --with-frozen-lockfile
+
+      - name: build packages
+        run: yarn lerna run build
+
+      - name: Lerna Publish
+        run: yarn lerna publish --force-publish --sign-git-tag --sign-git-commit --include-merged-tags --conventional-commits --yes --loglevel silly
+
