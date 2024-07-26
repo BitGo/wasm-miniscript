@@ -2,6 +2,10 @@
   "name": "@bitgo/wasm-miniscript",
   "version": "0.1.0",
   "lint-staged": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BitGo/wasm-miniscript.git"
+  },
   "files": [
     "dist/wasm/wasm_miniscript_bg.wasm",
     "dist/wasm/wasm_miniscript.js",
