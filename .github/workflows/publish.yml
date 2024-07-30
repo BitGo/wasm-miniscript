@@ -44,7 +44,6 @@ jobs:
           git config --global user.email 'bot@noreply.github.com'
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git checkout -b release-$(git rev-parse --short HEAD)
-          echo "email=${{ secrets.NPM_EMAIL }}" > .npmrc
           echo "@bitgo:registry=https://registry.npmjs.org" >> .npmrc
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" >> .npmrc
           echo "//registry.npmjs.org/:always-auth=true" >> .npmrc
