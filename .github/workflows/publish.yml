@@ -1,9 +1,8 @@
 name: Publish @wasm-miniscript
 on:
-  workflow_dispatch:
-   push:
-     branches:
-       - master
+  push:
+    branches:
+      - master
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
