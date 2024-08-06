@@ -3,7 +3,6 @@
 This is a wrapper around the [rust-miniscript](https://github.com/rust-bitcoin/rust-miniscript) crate that is compiled
 to WebAssembly. It allows you to use Miniscript in NodeJS and in the browser.
 
-
 # Dependencies
 
 - [Rust](https://www.rust-lang.org/) nightly

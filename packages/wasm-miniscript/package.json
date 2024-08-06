@@ -2,6 +2,10 @@
   "name": "@bitgo/wasm-miniscript",
   "version": "0.1.0",
   "lint-staged": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BitGo/wasm-miniscript.git"
+  },
   "files": [
     "dist/wasm/wasm_miniscript_bg.wasm",
     "dist/wasm/wasm_miniscript.js",
@@ -38,5 +42,9 @@
     "mocha": "^10.6.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }
