@@ -7,11 +7,19 @@
     "url": "git+https://github.com/BitGo/wasm-miniscript.git"
   },
   "files": [
-    "dist/wasm/wasm_miniscript_bg.wasm",
-    "dist/wasm/wasm_miniscript.js",
-    "dist/wasm/wasm_miniscript_bg.js",
     "dist/wasm/wasm_miniscript.d.ts",
-    "dist/index.js"
+    "dist/wasm/wasm_miniscript.js",
+    "dist/wasm/wasm_miniscript_bg.wasm",
+    "dist/wasm/wasm_miniscript_bg.wasm.d.ts",
+    "dist/browser/wasm/wasm_miniscript.d.ts",
+    "dist/browser/wasm/wasm_miniscript.js",
+    "dist/browser/wasm/wasm_miniscript_bg.js",
+    "dist/browser/wasm/wasm_miniscript_bg.wasm",
+    "dist/browser/wasm/wasm_miniscript_bg.wasm.d.ts",
+    "dist/browser/index.d.ts",
+    "dist/browser/index.js",
+    "dist/index.js",
+    "dist/index.d.ts"
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
