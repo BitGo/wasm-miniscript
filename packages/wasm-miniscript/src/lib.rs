@@ -196,6 +196,16 @@ impl WrapDescriptor {
         }
     }
 
+    #[wasm_bindgen(js_name = scriptPubkey)]
+    pub fn script_pubkey(&self) -> Result<Vec<u8>, JsError> {
+        match &self.0 {
+            WrapDescriptorEnum::Definite(desc) => {
+                Ok(desc.script_pubkey().to_bytes())
+            }
+            _ => Err(JsError::new("Cannot derive from a non-definite descriptor")),
+        }
+    }
+
     fn explicit_script(&self) -> Result<ScriptBuf, JsError> {
         match &self.0 {
             WrapDescriptorEnum::Definite(desc) => {

@@ -28,7 +28,7 @@ describe("Descriptor fixtures", function () {
       }
       let expected = fixture.descriptor;
       if (i === 56 || i === 57) {
-        // for reasons I do not really understand, teh `a:and_n` gets converted into `a:and_b` for these
+        // for reasons I do not really understand, the `a:and_n` gets converted into `a:and_b` for these
         expected = expected.replace("and_n", "and_b");
       }
       assert.strictEqual(descriptorString, expected);
@@ -44,6 +44,18 @@ describe("Descriptor fixtures", function () {
       } else {
         assert.doesNotThrow(() =>
           descriptorFromString(fixture.descriptor, "derivable").atDerivationIndex(0).encode(),
+        );
+
+        let descriptorString = fixture.descriptor;
+        if (fixture.checksumRequired === false) {
+          descriptorString = removeChecksum(descriptorString);
+        }
+        const descriptor = descriptorFromString(descriptorString, "derivable");
+        assert.strictEqual(
+          Buffer.from(descriptor.atDerivationIndex(fixture.index ?? 0).scriptPubkey()).toString(
+            "hex",
+          ),
+          fixture.script,
         );
       }
     });
