@@ -39,6 +39,7 @@ export type Descriptor = {
   atDerivationIndex(index: number): Descriptor;
   encode(): Uint8Array;
   toAsmString(): string;
+  scriptPubkey(): Uint8Array;
 };
 
 export function isDescriptor(obj: unknown): obj is Descriptor {
