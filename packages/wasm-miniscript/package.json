@@ -1,6 +1,6 @@
 {
   "name": "@bitgo/wasm-miniscript",
-  "version": "0.1.0",
+  "version": "0.0.0-semantic-release-managed",
   "lint-staged": "MIT",
   "repository": {
     "type": "git",
