@@ -57,7 +57,4 @@ jobs:
         run: yarn lerna run build
 
       - name: Lerna Publish
-        run: yarn lerna publish --force-publish --include-merged-tags --conventional-commits --yes --loglevel silly --no-push
-
-      - name: Push the git new tag
-        run: git push --tags
+        run: yarn lerna publish --force-publish --include-merged-tags --conventional-commits --yes --loglevel silly
