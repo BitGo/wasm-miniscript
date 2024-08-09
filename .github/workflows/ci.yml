@@ -43,7 +43,6 @@ jobs:
         run: |
           echo "node $(node --version)"
           echo "npm $(npm --version)"
-          echo "yarn $(yarn --version)"
           git --version
           echo "base ref $GITHUB_BASE_REF"
           echo "head ref $GITHUB_HEAD_REF"
@@ -53,13 +52,16 @@ jobs:
           git fetch origin $GITHUB_BASE_REF
 
       - name: Install Packages
-        run: yarn install --with-frozen-lockfile
+        run: npm ci --workspaces --include-workspace-root
+
+      - name: test
+        run: npx --version
 
       - name: build packages
-        run: yarn lerna run build
+        run: npm --workspaces run build
 
       - name: Check Source Code Formatting
-        run: yarn lerna exec 'prettier --check .'
+        run: npm run check-fmt
 
       - name: Unit Test
-        run: yarn lerna run test
+        run: npm --workspaces test

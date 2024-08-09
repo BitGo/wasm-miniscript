@@ -42,7 +42,8 @@
     "build:wasm": "npm run build:wasm-dev && npm run build:wasm-nodejs && npm run build:wasm-browser",
     "build:ts-browser": "tsc --module es2020 --target es2020 --outDir dist/browser",
     "build:ts": "tsc && npm run build:ts-browser",
-    "build": "npm run build:wasm && npm run build:ts"
+    "build": "npm run build:wasm && npm run build:ts",
+    "check-fmt": "prettier --check ."
   },
   "devDependencies": {
     "@types/mocha": "^10.0.7",

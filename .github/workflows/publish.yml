@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v3
@@ -34,24 +36,26 @@ jobs:
         run: |
           echo "node $(node --version)"
           echo "npm $(npm --version)"
-          echo "yarn $(yarn --version)"
           echo "rust $(rustup --version)"
           git --version
 
-      - name: Configure Git & NPM
+      - name: Configure NPM
         run: |
-          git config --global user.name 'Git bot'
-          git config --global user.email 'bot@noreply.github.com'
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+          echo "workspaces-update = false" >> .npmrc
           echo "@bitgo:registry=https://registry.npmjs.org" >> .npmrc
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" >> .npmrc
           echo "//registry.npmjs.org/:always-auth=true" >> .npmrc
 
       - name: Install Packages
-        run: yarn install --with-frozen-lockfile
+        run: npm ci --workspaces --include-workspace-root
 
       - name: build packages
-        run: yarn lerna run build
+        run: npm --workspaces run build
 
-      - name: Lerna Publish
-        run: yarn lerna publish --force-publish --include-merged-tags --conventional-commits --yes --loglevel silly --no-push --no-git-tag-version --no-changelog
+      - name: Unit Test
+        run: npm --workspaces test
+
+      - name: Release
+        run: npx multi-semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
