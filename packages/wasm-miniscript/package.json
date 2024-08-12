@@ -36,10 +36,7 @@
   },
   "scripts": {
     "test": "mocha --recursive test",
-    "build:wasm-dev": "wasm-pack build --out-dir js/wasm --no-pack --target nodejs --weak-refs",
-    "build:wasm-nodejs": "wasm-pack build --out-dir dist/wasm --no-pack --target nodejs --weak-refs",
-    "build:wasm-browser": "wasm-pack build --out-dir dist/browser/wasm --no-pack --target browser --weak-refs",
-    "build:wasm": "npm run build:wasm-dev && npm run build:wasm-nodejs && npm run build:wasm-browser",
+    "build:wasm": "make js/wasm/ && make dist/wasm/ && make dist/browser/wasm/",
     "build:ts-browser": "tsc --module es2020 --target es2020 --outDir dist/browser",
     "build:ts": "tsc && npm run build:ts-browser",
     "build": "npm run build:wasm && npm run build:ts",

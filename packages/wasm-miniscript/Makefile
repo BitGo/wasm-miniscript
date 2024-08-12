@@ -1,26 +1,31 @@
-.PHONY: all build-image build-wasm enter-image clean-container clean-image
+WASM_PACK = wasm-pack
+WASM_PACK_FLAGS = --no-pack --weak-refs
 
-CONTAINER_ENGINE ?= docker
+ifdef WASM_PACK_DEV
+	WASM_PACK_FLAGS += --dev
+endif
 
-all: build-image build-wasm
+define WASM_PACK_COMMAND
+	$(WASM_PACK) build --out-dir $(1) $(WASM_PACK_FLAGS) --target $(2)
+endef
 
-build-image:
-	$(CONTAINER_ENGINE) build --tag wasm-builder .
+define REMOVE_GITIGNORE
+	find $(1) -name .gitignore -delete
+endef
 
-build-wasm:
-	rm -rf dist/ js/wasm/
-	$(CONTAINER_ENGINE) rm -f wasm-builder-container || true
-	$(CONTAINER_ENGINE) run -v $(shell pwd)/src:/usr/src/app/src \
-	--name wasm-builder-container wasm-builder \
-	npm run build
-	$(CONTAINER_ENGINE) cp wasm-builder-container:/usr/src/app/dist .
-	$(CONTAINER_ENGINE) cp wasm-builder-container:/usr/src/app/js/wasm ./js/wasm
+define BUILD
+	$(call WASM_PACK_COMMAND,$(1),$(2))
+	$(call REMOVE_GITIGNORE,$(1))
+endef
 
-enter-image:
-	$(CONTAINER_ENGINE) run -it wasm-builder /bin/bash
+.PHONY: js/wasm/
+js/wasm/:
+	$(call BUILD,$@,nodejs)
 
-clean-container:
-	$(CONTAINER_ENGINE) rm wasm-builder-container
+.PHONY: dist/wasm/
+dist/wasm/:
+	$(call BUILD,$@,nodejs)
 
-clean-image:
-	$(CONTAINER_ENGINE) rmi wasm-builder
+.PHONY: dist/browser/wasm/
+dist/browser/wasm/:
+	$(call BUILD,$@,browser)
