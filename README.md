@@ -24,5 +24,5 @@ If your system has problems with `wasm-pack` (Mac M1), you can use the `Containe
 ```bash
 cd packages/wasm-miniscript
 make -f Container.mk build-image
-make -f Conatiner.mk build-wasm
+make -f Container.mk build-wasm
 ```
