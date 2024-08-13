@@ -29,3 +29,4 @@ declare module "./wasm/wasm_miniscript" {
 
 export { WrapDescriptor as Descriptor } from "./wasm/wasm_miniscript";
 export { WrapMiniscript as Miniscript } from "./wasm/wasm_miniscript";
+export { WrapPsbt as Psbt } from "./wasm/wasm_miniscript";

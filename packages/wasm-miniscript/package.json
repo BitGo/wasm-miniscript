@@ -43,6 +43,7 @@
     "check-fmt": "prettier --check ."
   },
   "devDependencies": {
+    "@bitgo/utxo-lib": "^10.1.0",
     "@types/mocha": "^10.0.7",
     "@types/node": "^20.14.10",
     "mocha": "^10.6.0",
