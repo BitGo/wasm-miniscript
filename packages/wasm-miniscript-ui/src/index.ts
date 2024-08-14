@@ -1,18 +1,11 @@
-import {
-  descriptorFromString,
-  miniscriptFromBitcoinScript,
-  miniscriptFromString,
-  ScriptContext,
-} from "@bitgo/wasm-miniscript";
-
 import * as utxolib from "@bitgo/utxo-lib";
+import { Descriptor, Miniscript, ScriptContext } from "@bitgo/wasm-miniscript";
 
 import "./style.css";
 
 import { getElement } from "./html";
 import { buildOptions, getOptions, Options } from "./options";
 import { getHtmlForAst } from "./htmlAST";
-import { Descriptor, Miniscript } from "@bitgo/wasm-miniscript";
 import { fromHex, toHex } from "./hex";
 import { getShare, setShare, Share } from "./sharing";
 
@@ -22,7 +15,7 @@ function createMiniscriptFromBitcoinScriptDetectScriptContext(
   const formats = ["tap", "segwitv0", "legacy"] as const;
   for (const format of formats) {
     try {
-      return [miniscriptFromBitcoinScript(script, format), format];
+      return [Miniscript.fromBitcoinScript(script, format), format];
     } catch (e) {
       // ignore
     }
@@ -168,7 +161,7 @@ function applyUpdate(changedEl: HTMLElement, options: Options) {
     changedEl === elEditDescriptor ||
     changedEl === getElement("input-derivation-index", HTMLInputElement)
   ) {
-    const descriptor = descriptorFromString(elEditDescriptor.value, "derivable");
+    const descriptor = Descriptor.fromString(elEditDescriptor.value, "derivable");
     setHtmlContent(elDescriptorAst, getHtmlForAst(descriptor.node()));
     const descriptorAtIndex = descriptor.atDerivationIndex(options.derivationIndex);
     return applyUpdateWith(
@@ -189,7 +182,7 @@ function applyUpdate(changedEl: HTMLElement, options: Options) {
     changedEl === getElement("input-script-context", HTMLSelectElement)
   ) {
     try {
-      const script = miniscriptFromString(elEditMiniscript.value, options.scriptContext);
+      const script = Miniscript.fromString(elEditMiniscript.value, options.scriptContext);
       return applyUpdateWith(
         changedEl,
         { descriptor: null, miniscript: script, scriptBytes: undefined, scriptAsm: undefined },

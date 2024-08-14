@@ -4,50 +4,28 @@ import * as wasm from "./wasm/wasm_miniscript";
 // and forgets to include it in the bundle
 void wasm;
 
-export type MiniscriptNode = unknown;
-
-export type Miniscript = {
-  node(): MiniscriptNode;
-  toString(): string;
-  encode(): Uint8Array;
-  toAsmString(): string;
-};
-
-export function isMiniscript(obj: unknown): obj is Miniscript {
-  return obj instanceof wasm.WrapMiniscript;
-}
+export type DescriptorPkType = "derivable" | "definite" | "string";
 
 export type ScriptContext = "tap" | "segwitv0" | "legacy";
 
-export function miniscriptFromString(script: string, scriptContext: ScriptContext): Miniscript {
-  return wasm.miniscript_from_string(script, scriptContext);
+declare module "./wasm/wasm_miniscript" {
+  interface WrapDescriptor {
+    node(): unknown;
+  }
+
+  namespace WrapDescriptor {
+    function fromString(descriptor: string, pkType: DescriptorPkType): WrapDescriptor;
+  }
+
+  interface WrapMiniscript {
+    node(): unknown;
+  }
+
+  namespace WrapMiniscript {
+    function fromString(miniscript: string, ctx: ScriptContext): WrapMiniscript;
+    function fromBitcoinScript(script: Uint8Array, ctx: ScriptContext): WrapMiniscript;
+  }
 }
 
-export function miniscriptFromBitcoinScript(
-  script: Uint8Array,
-  scriptContext: ScriptContext,
-): Miniscript {
-  return wasm.miniscript_from_bitcoin_script(script, scriptContext);
-}
-
-export type DescriptorNode = unknown;
-
-export type Descriptor = {
-  node(): DescriptorNode;
-  toString(): string;
-  hasWildcard(): boolean;
-  atDerivationIndex(index: number): Descriptor;
-  encode(): Uint8Array;
-  toAsmString(): string;
-  scriptPubkey(): Uint8Array;
-};
-
-export function isDescriptor(obj: unknown): obj is Descriptor {
-  return obj instanceof wasm.WrapDescriptor;
-}
-
-type DescriptorPkType = "derivable" | "definite" | "string";
-
-export function descriptorFromString(descriptor: string, pkType: DescriptorPkType): Descriptor {
-  return wasm.descriptor_from_string(descriptor, pkType);
-}
+export { WrapDescriptor as Descriptor } from "./wasm/wasm_miniscript";
+export { WrapMiniscript as Miniscript } from "./wasm/wasm_miniscript";

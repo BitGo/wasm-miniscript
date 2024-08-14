@@ -1,11 +1,11 @@
-use std::str::FromStr;
-use miniscript::{DefiniteDescriptorKey, Descriptor, DescriptorPublicKey};
-use miniscript::bitcoin::ScriptBuf;
+use crate::try_into_js_value::TryIntoJsValue;
 use miniscript::bitcoin::secp256k1::Secp256k1;
+use miniscript::bitcoin::ScriptBuf;
 use miniscript::descriptor::KeyMap;
+use miniscript::{DefiniteDescriptorKey, Descriptor, DescriptorPublicKey};
+use std::str::FromStr;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsError, JsValue};
-use crate::try_into_js_value::TryIntoJsValue;
 
 enum WrapDescriptorEnum {
     Derivable(Descriptor<DescriptorPublicKey>, KeyMap),
@@ -58,18 +58,14 @@ impl WrapDescriptor {
     #[wasm_bindgen(js_name = scriptPubkey)]
     pub fn script_pubkey(&self) -> Result<Vec<u8>, JsError> {
         match &self.0 {
-            WrapDescriptorEnum::Definite(desc) => {
-                Ok(desc.script_pubkey().to_bytes())
-            }
+            WrapDescriptorEnum::Definite(desc) => Ok(desc.script_pubkey().to_bytes()),
             _ => Err(JsError::new("Cannot derive from a non-definite descriptor")),
         }
     }
 
     fn explicit_script(&self) -> Result<ScriptBuf, JsError> {
         match &self.0 {
-            WrapDescriptorEnum::Definite(desc) => {
-                Ok(desc.explicit_script()?)
-            }
+            WrapDescriptorEnum::Definite(desc) => Ok(desc.explicit_script()?),
             WrapDescriptorEnum::Derivable(_, _) => {
                 Err(JsError::new("Cannot encode a derivable descriptor"))
             }
@@ -85,24 +81,24 @@ impl WrapDescriptor {
     pub fn to_asm_string(&self) -> Result<String, JsError> {
         Ok(self.explicit_script()?.to_asm_string())
     }
-}
 
-#[wasm_bindgen]
-pub fn descriptor_from_string(descriptor: &str, pk_type: &str) -> Result<WrapDescriptor, JsError> {
-    match pk_type {
-        "derivable" => {
-            let secp = Secp256k1::new();
-            let (desc, keys) = Descriptor::parse_descriptor(&secp, descriptor)?;
-            Ok(WrapDescriptor(WrapDescriptorEnum::Derivable(desc, keys)))
+    #[wasm_bindgen(js_name = fromString, skip_typescript)]
+    pub fn from_string(descriptor: &str, pk_type: &str) -> Result<WrapDescriptor, JsError> {
+        match pk_type {
+            "derivable" => {
+                let secp = Secp256k1::new();
+                let (desc, keys) = Descriptor::parse_descriptor(&secp, descriptor)?;
+                Ok(WrapDescriptor(WrapDescriptorEnum::Derivable(desc, keys)))
+            }
+            "definite" => {
+                let desc = Descriptor::<DefiniteDescriptorKey>::from_str(descriptor)?;
+                Ok(WrapDescriptor(WrapDescriptorEnum::Definite(desc)))
+            }
+            "string" => {
+                let desc = Descriptor::<String>::from_str(descriptor)?;
+                Ok(WrapDescriptor(WrapDescriptorEnum::String(desc)))
+            }
+            _ => Err(JsError::new("Invalid descriptor type")),
         }
-        "definite" => {
-            let desc = Descriptor::<DefiniteDescriptorKey>::from_str(descriptor)?;
-            Ok(WrapDescriptor(WrapDescriptorEnum::Definite(desc)))
-        }
-        "string" => {
-            let desc = Descriptor::<String>::from_str(descriptor)?;
-            Ok(WrapDescriptor(WrapDescriptorEnum::String(desc)))
-        }
-        _ => Err(JsError::new("Invalid descriptor type")),
     }
 }

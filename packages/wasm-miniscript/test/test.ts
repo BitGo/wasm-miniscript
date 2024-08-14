@@ -1,14 +1,14 @@
 import * as assert from "assert";
-import { descriptorFromString, miniscriptFromString, miniscriptFromBitcoinScript } from "../js";
+import { Miniscript, Descriptor } from "../js";
 import { fixtures } from "./descriptorFixtures";
 
 describe("AST", function () {
   it("should get ast", function () {
     const pubkey = Buffer.alloc(32, 1).toString("hex");
-    const result = miniscriptFromString(`multi_a(1,${pubkey})`, "tap");
+    const result = Miniscript.fromString(`multi_a(1,${pubkey})`, "tap");
     console.dir(result.node(), { depth: null });
     console.dir(result.encode(), { depth: null });
-    console.dir(miniscriptFromBitcoinScript(result.encode(), "tap").toString());
+    console.dir(Miniscript.fromBitcoinScript(result.encode(), "tap").toString());
   });
 });
 
@@ -20,7 +20,7 @@ function removeChecksum(descriptor: string): string {
 describe("Descriptor fixtures", function () {
   fixtures.valid.forEach((fixture, i) => {
     it("should parse fixture " + i, function () {
-      const descriptor = descriptorFromString(fixture.descriptor, "string");
+      const descriptor = Descriptor.fromString(fixture.descriptor, "string");
       assert.doesNotThrow(() => descriptor.node());
       let descriptorString = descriptor.toString();
       if (fixture.checksumRequired === false) {
@@ -34,7 +34,7 @@ describe("Descriptor fixtures", function () {
       assert.strictEqual(descriptorString, expected);
 
       assert.doesNotThrow(() =>
-        descriptorFromString(fixture.descriptor, "derivable").atDerivationIndex(0),
+        Descriptor.fromString(fixture.descriptor, "derivable").atDerivationIndex(0),
       );
 
       const nonDerivable = [33, 34, 35, 41, 42, 43];
@@ -43,14 +43,14 @@ describe("Descriptor fixtures", function () {
         console.log("Skipping encoding test for fixture", fixture.descriptor, i);
       } else {
         assert.doesNotThrow(() =>
-          descriptorFromString(fixture.descriptor, "derivable").atDerivationIndex(0).encode(),
+          Descriptor.fromString(fixture.descriptor, "derivable").atDerivationIndex(0).encode(),
         );
 
         let descriptorString = fixture.descriptor;
         if (fixture.checksumRequired === false) {
           descriptorString = removeChecksum(descriptorString);
         }
-        const descriptor = descriptorFromString(descriptorString, "derivable");
+        const descriptor = Descriptor.fromString(descriptorString, "derivable");
         assert.strictEqual(
           Buffer.from(descriptor.atDerivationIndex(fixture.index ?? 0).scriptPubkey()).toString(
             "hex",
