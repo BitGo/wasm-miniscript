@@ -1,10 +1,5 @@
 import * as t from "io-ts";
-import {
-  Descriptor,
-  descriptorFromString,
-  Miniscript,
-  miniscriptFromString,
-} from "@bitgo/wasm-miniscript";
+import { Descriptor, Miniscript } from "@bitgo/wasm-miniscript";
 import { fromHex, toHex } from "./hex";
 import { ScriptContext } from "./codec";
 
@@ -67,11 +62,11 @@ export function getShare(
     }
 
     if ("d" in v) {
-      return { descriptor: descriptorFromString(v.d, "derivable") };
+      return { descriptor: Descriptor.fromString(v.d, "derivable") };
     }
     if ("ms" in v && "sc" in v) {
       return {
-        miniscript: miniscriptFromString(v.ms, v.sc),
+        miniscript: Miniscript.fromString(v.ms, v.sc),
         scriptContext: v.sc,
       };
     }
