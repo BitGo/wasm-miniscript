@@ -1,15 +1,38 @@
 import * as utxolib from "@bitgo/utxo-lib";
+import { RootWalletKeys } from "@bitgo/utxo-lib/dist/src/bitgo";
 
-function getEmptyPsbt() {
-  return new utxolib.bitgo.UtxoPsbt();
+type PsbtStage = "bare" | "unsigned" | "halfsigned" | "fullsigned";
+
+export function toPsbtWithPrevOutOnly(psbt: utxolib.bitgo.UtxoPsbt) {
+  const psbtCopy = utxolib.bitgo.UtxoPsbt.createPsbt({
+    network: utxolib.networks.bitcoin,
+  });
+  psbtCopy.setVersion(psbt.version);
+  psbtCopy.setLocktime(psbt.locktime);
+  psbt.txInputs.forEach((input, vin) => {
+    const { witnessUtxo, nonWitnessUtxo } = psbt.data.inputs[vin];
+    psbtCopy.addInput({
+      hash: input.hash,
+      index: input.index,
+      sequence: input.sequence,
+      ...(witnessUtxo ? { witnessUtxo } : { nonWitnessUtxo }),
+    });
+  });
+  psbt.txOutputs.forEach((output, vout) => {
+    psbtCopy.addOutput(output);
+  });
+  return psbtCopy;
 }
 
 function getPsbtWithScriptTypeAndStage(
-  seed: string,
+  keys: RootWalletKeys,
   scriptType: utxolib.bitgo.outputScripts.ScriptType2Of3,
-  stage: "unsigned" | "halfsigned" | "fullsigned",
+  stage: PsbtStage,
 ) {
-  const keys = new utxolib.bitgo.RootWalletKeys(utxolib.testutil.getKeyTriple(seed));
+  if (stage === "bare") {
+    const psbt = getPsbtWithScriptTypeAndStage(keys, scriptType, "unsigned");
+    return toPsbtWithPrevOutOnly(psbt);
+  }
   return utxolib.testutil.constructPsbt(
     [
       {
@@ -25,27 +48,28 @@ function getPsbtWithScriptTypeAndStage(
     ],
     utxolib.networks.bitcoin,
     keys,
-    "unsigned",
+    stage,
   );
 }
 
 export type PsbtFixture = {
   psbt: utxolib.bitgo.UtxoPsbt;
-  name: string;
+  scriptType: utxolib.bitgo.outputScripts.ScriptType2Of3;
+  stage: PsbtStage;
 };
 
-export function getPsbtFixtures(): PsbtFixture[] {
+export function getPsbtFixtures(keys: RootWalletKeys): PsbtFixture[] {
   const testMatrixScriptTypes = ["p2sh", "p2shP2wsh", "p2wsh"] as const;
-  const testMatrixStages = ["unsigned", "halfsigned", "fullsigned"] as const;
+  const testMatrixStages = ["bare", "unsigned", "halfsigned", "fullsigned"] as const;
 
-  const fixturesBitGo2Of3 = testMatrixStages.flatMap((stage) => {
+  return testMatrixStages.flatMap((stage) => {
     return testMatrixScriptTypes.map((scriptType) => {
       return {
-        psbt: getPsbtWithScriptTypeAndStage("wasm", scriptType, stage),
+        psbt: getPsbtWithScriptTypeAndStage(keys, scriptType, stage),
         name: `${scriptType}-${stage}`,
+        scriptType,
+        stage,
       };
     });
   });
-
-  return [{ psbt: getEmptyPsbt(), name: "empty" }, ...fixturesBitGo2Of3];
 }

@@ -7,14 +7,14 @@ use std::str::FromStr;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsError, JsValue};
 
-enum WrapDescriptorEnum {
+pub(crate) enum WrapDescriptorEnum {
     Derivable(Descriptor<DescriptorPublicKey>, KeyMap),
     Definite(Descriptor<DefiniteDescriptorKey>),
     String(Descriptor<String>),
 }
 
 #[wasm_bindgen]
-pub struct WrapDescriptor(WrapDescriptorEnum);
+pub struct WrapDescriptor(pub(crate) WrapDescriptorEnum);
 
 #[wasm_bindgen]
 impl WrapDescriptor {
