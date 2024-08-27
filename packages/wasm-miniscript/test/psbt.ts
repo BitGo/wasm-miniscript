@@ -29,6 +29,10 @@ function toUtxoPsbt(psbt: Psbt | Buffer | Uint8Array) {
   throw new Error("Invalid input");
 }
 
+function assertEqualBuffer(a: Buffer | Uint8Array, b: Buffer | Uint8Array, message?: string) {
+  assert.strictEqual(Buffer.from(a).toString("hex"), Buffer.from(b).toString("hex"), message);
+}
+
 const fixtures = getPsbtFixtures(rootWalletKeys);
 
 function describeUpdateInputWithDescriptor(
@@ -52,15 +56,15 @@ function describeUpdateInputWithDescriptor(
       const updatedPsbt = toUtxoPsbt(wrappedPsbt);
       updatedPsbt.signAllInputsHD(rootWalletKeys.triple[0]);
       updatedPsbt.signAllInputsHD(rootWalletKeys.triple[2]);
+      const wrappedSignedPsbt = toWrappedPsbt(updatedPsbt);
       updatedPsbt.finalizeAllInputs();
-      assert.deepStrictEqual(
-        fullSignedFixture.psbt
-          .clone()
-          .finalizeAllInputs()
-          .extractTransaction()
-          .toBuffer()
-          .toString("hex"),
-        updatedPsbt.extractTransaction().toBuffer().toString("hex"),
+      wrappedSignedPsbt.finalize();
+
+      assertEqualBuffer(updatedPsbt.toBuffer(), wrappedSignedPsbt.serialize());
+
+      assertEqualBuffer(
+        fullSignedFixture.psbt.clone().finalizeAllInputs().extractTransaction().toBuffer(),
+        updatedPsbt.extractTransaction().toBuffer(),
       );
     });
   });
@@ -77,11 +81,11 @@ fixtures.forEach(({ psbt, scriptType, stage }) => {
     });
 
     it("should map to same hex", function () {
-      assert.strictEqual(buf.toString("hex"), Buffer.from(wrappedPsbt.serialize()).toString("hex"));
+      assertEqualBuffer(buf, wrappedPsbt.serialize());
     });
 
     it("should round-trip utxolib -> ms -> utxolib", function () {
-      assert.strictEqual(buf.toString("hex"), toUtxoPsbt(wrappedPsbt).toBuffer().toString("hex"));
+      assertEqualBuffer(buf, toUtxoPsbt(wrappedPsbt).toBuffer());
     });
 
     if (stage === "bare") {
