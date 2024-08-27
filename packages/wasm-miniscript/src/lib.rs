@@ -2,7 +2,6 @@
 
 mod try_into_js_value;
 mod miniscript;
-mod error;
 mod descriptor;
 mod psbt;
 
