@@ -47,7 +47,7 @@ function describeUpdateInputWithDescriptor(
       const descriptorStr = getDescriptorForScriptType(rootWalletKeys, scriptType, "internal");
       const index = 0;
       const descriptor = Descriptor.fromString(descriptorStr, "derivable");
-      const wrappedPsbt = toWrappedPsbt(toPsbtWithPrevOutOnly(psbt));
+      const wrappedPsbt = toWrappedPsbt(psbt);
       wrappedPsbt.updateInputWithDescriptor(0, descriptor.atDerivationIndex(index));
       const updatedPsbt = toUtxoPsbt(wrappedPsbt);
       updatedPsbt.signAllInputsHD(rootWalletKeys.triple[0]);
