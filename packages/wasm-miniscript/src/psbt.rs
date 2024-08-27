@@ -1,4 +1,5 @@
 use miniscript::bitcoin::Psbt;
+use miniscript::bitcoin::secp256k1::Secp256k1;
 use miniscript::psbt::PsbtExt;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsError};
@@ -18,6 +19,10 @@ impl WrapPsbt {
         self.0.serialize()
     }
 
+    pub fn clone(&self) -> WrapPsbt {
+        WrapPsbt(self.0.clone())
+    }
+
     #[wasm_bindgen(js_name = updateInputWithDescriptor)]
     pub fn update_input_with_descriptor(&mut self, input_index: usize, descriptor: WrapDescriptor) -> Result<(), JsError> {
         match descriptor.0 {
@@ -31,5 +36,12 @@ impl WrapPsbt {
                 Err(JsError::new("Cannot update input with a string descriptor"))
             }
         }
+    }
+
+    #[wasm_bindgen(js_name = finalize)]
+    pub fn finalize_mut(&mut self) -> Result<(), JsError> {
+        self.0.finalize_mut(&Secp256k1::verification_only()).map_err(|vec_err| {
+            JsError::new(&format!("{} errors: {:?}", vec_err.len(), vec_err))
+        })
     }
 }
