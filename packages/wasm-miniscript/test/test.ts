@@ -58,6 +58,8 @@ describe("Descriptor fixtures", function () {
           fixture.script,
         );
       }
+
+      assert.ok(Number.isInteger(descriptor.maxWeightToSatisfy()));
     });
   });
 });

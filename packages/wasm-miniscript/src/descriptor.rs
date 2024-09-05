@@ -82,6 +82,18 @@ impl WrapDescriptor {
         Ok(self.explicit_script()?.to_asm_string())
     }
 
+    #[wasm_bindgen(js_name = maxWeightToSatisfy)]
+    pub fn max_weight_to_satisfy(&self) -> Result<u32, JsError> {
+        let weight = (match &self.0 {
+            WrapDescriptorEnum::Derivable(desc, _) => {
+                desc.max_weight_to_satisfy()
+            }
+            WrapDescriptorEnum::Definite(desc) => desc.max_weight_to_satisfy(),
+            WrapDescriptorEnum::String(desc) => desc.max_weight_to_satisfy(),
+        })?;
+        weight.to_wu().try_into().map_err(|_| JsError::new("Weight exceeds u32"))
+    }
+
     #[wasm_bindgen(js_name = fromString, skip_typescript)]
     pub fn from_string(descriptor: &str, pk_type: &str) -> Result<WrapDescriptor, JsError> {
         match pk_type {
