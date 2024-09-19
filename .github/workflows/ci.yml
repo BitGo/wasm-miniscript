@@ -37,6 +37,7 @@ jobs:
 
       - name: Install wasm-pack
         run: |
+          rustup component add rustfmt
           cargo install wasm-pack
 
       - name: Build Info
