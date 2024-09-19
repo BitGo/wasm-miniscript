@@ -60,6 +60,19 @@ describe("Descriptor fixtures", function () {
       }
 
       assert.ok(Number.isInteger(descriptor.maxWeightToSatisfy()));
+
+      switch (descriptor.descType()) {
+        case "Bare":
+        case "Pkh":
+        case "Sh":
+        case "ShWsh":
+        case "Wsh":
+        case "Wpkh":
+        case "ShWpkh":
+          break;
+        default:
+          throw new Error("unexpected descriptor type " + descriptor.descType());
+      }
     });
   });
 });

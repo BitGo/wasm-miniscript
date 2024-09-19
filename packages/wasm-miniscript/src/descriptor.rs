@@ -54,6 +54,15 @@ impl WrapDescriptor {
             _ => Err(JsError::new("Cannot derive from a definite descriptor")),
         }
     }
+    
+    #[wasm_bindgen(js_name = descType)]
+    pub fn desc_type(&self) -> Result<JsValue, JsError> {
+        (match &self.0 {
+            WrapDescriptorEnum::Derivable(desc, _) => desc.desc_type(),
+            WrapDescriptorEnum::Definite(desc) => desc.desc_type(),
+            WrapDescriptorEnum::String(desc) => desc.desc_type(),
+        }).try_to_js_value()
+    }
 
     #[wasm_bindgen(js_name = scriptPubkey)]
     pub fn script_pubkey(&self) -> Result<Vec<u8>, JsError> {
