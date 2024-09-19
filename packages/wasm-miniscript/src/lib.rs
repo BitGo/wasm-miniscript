@@ -1,10 +1,8 @@
-
-
-mod try_into_js_value;
-mod miniscript;
 mod descriptor;
+mod miniscript;
 mod psbt;
+mod try_into_js_value;
 
-pub use miniscript::WrapMiniscript;
 pub use descriptor::WrapDescriptor;
+pub use miniscript::WrapMiniscript;
 pub use psbt::WrapPsbt;

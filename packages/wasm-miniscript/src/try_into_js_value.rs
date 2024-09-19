@@ -1,10 +1,13 @@
-use wasm_bindgen::{JsError, JsValue};
 use js_sys::Array;
-use miniscript::{AbsLockTime, DefiniteDescriptorKey, Descriptor, DescriptorPublicKey, hash256, Miniscript, MiniscriptKey, RelLockTime, ScriptContext, Terminal, Threshold};
-use miniscript::descriptor::{DescriptorType, ShInner, SortedMultiVec, TapTree, Tr, WshInner};
-use miniscript::bitcoin::{PublicKey, XOnlyPublicKey};
 use miniscript::bitcoin::hashes::{hash160, ripemd160};
+use miniscript::bitcoin::{PublicKey, XOnlyPublicKey};
+use miniscript::descriptor::{DescriptorType, ShInner, SortedMultiVec, TapTree, Tr, WshInner};
+use miniscript::{
+    hash256, AbsLockTime, DefiniteDescriptorKey, Descriptor, DescriptorPublicKey, Miniscript,
+    MiniscriptKey, RelLockTime, ScriptContext, Terminal, Threshold,
+};
 use std::sync::Arc;
+use wasm_bindgen::{JsError, JsValue};
 
 pub(crate) trait TryIntoJsValue {
     fn try_to_js_value(&self) -> Result<JsValue, JsError>;
@@ -64,7 +67,7 @@ impl<T: TryIntoJsValue> TryIntoJsValue for Option<T> {
     fn try_to_js_value(&self) -> Result<JsValue, JsError> {
         match self {
             Some(v) => v.try_to_js_value(),
-            None => Ok(JsValue::NULL)
+            None => Ok(JsValue::NULL),
         }
     }
 }
@@ -128,7 +131,9 @@ impl<T: TryIntoJsValue, const MAX: usize> TryIntoJsValue for Threshold<T, MAX> {
     }
 }
 
-impl<Pk: MiniscriptKey + TryIntoJsValue, Ctx: ScriptContext> TryIntoJsValue for Miniscript<Pk, Ctx> {
+impl<Pk: MiniscriptKey + TryIntoJsValue, Ctx: ScriptContext> TryIntoJsValue
+    for Miniscript<Pk, Ctx>
+{
     fn try_to_js_value(&self) -> Result<JsValue, JsError> {
         self.node.try_to_js_value()
     }
@@ -169,7 +174,9 @@ impl<Pk: MiniscriptKey + TryIntoJsValue, Ctx: ScriptContext> TryIntoJsValue for 
     }
 }
 
-impl<Pk: MiniscriptKey + TryIntoJsValue, Ctx: ScriptContext> TryIntoJsValue for SortedMultiVec<Pk, Ctx> {
+impl<Pk: MiniscriptKey + TryIntoJsValue, Ctx: ScriptContext> TryIntoJsValue
+    for SortedMultiVec<Pk, Ctx>
+{
     fn try_to_js_value(&self) -> Result<JsValue, JsError> {
         js_obj!(
             "k" => self.k(),
@@ -212,7 +219,7 @@ impl<Pk: MiniscriptKey + TryIntoJsValue> TryIntoJsValue for TapTree<Pk> {
     fn try_to_js_value(&self) -> Result<JsValue, JsError> {
         match self {
             TapTree::Tree { left, right, .. } => js_obj!("Tree" => js_arr!(left, right)),
-            TapTree::Leaf(ms) => ms.try_to_js_value()
+            TapTree::Leaf(ms) => ms.try_to_js_value(),
         }
     }
 }
@@ -232,7 +239,6 @@ impl TryIntoJsValue for DefiniteDescriptorKey {
         self.as_descriptor_public_key().try_to_js_value()
     }
 }
-
 
 impl<Pk: MiniscriptKey + TryIntoJsValue> TryIntoJsValue for Descriptor<Pk> {
     fn try_to_js_value(&self) -> Result<JsValue, JsError> {

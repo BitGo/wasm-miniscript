@@ -54,14 +54,15 @@ impl WrapDescriptor {
             _ => Err(JsError::new("Cannot derive from a definite descriptor")),
         }
     }
-    
+
     #[wasm_bindgen(js_name = descType)]
     pub fn desc_type(&self) -> Result<JsValue, JsError> {
         (match &self.0 {
             WrapDescriptorEnum::Derivable(desc, _) => desc.desc_type(),
             WrapDescriptorEnum::Definite(desc) => desc.desc_type(),
             WrapDescriptorEnum::String(desc) => desc.desc_type(),
-        }).try_to_js_value()
+        })
+        .try_to_js_value()
     }
 
     #[wasm_bindgen(js_name = scriptPubkey)]
@@ -94,13 +95,14 @@ impl WrapDescriptor {
     #[wasm_bindgen(js_name = maxWeightToSatisfy)]
     pub fn max_weight_to_satisfy(&self) -> Result<u32, JsError> {
         let weight = (match &self.0 {
-            WrapDescriptorEnum::Derivable(desc, _) => {
-                desc.max_weight_to_satisfy()
-            }
+            WrapDescriptorEnum::Derivable(desc, _) => desc.max_weight_to_satisfy(),
             WrapDescriptorEnum::Definite(desc) => desc.max_weight_to_satisfy(),
             WrapDescriptorEnum::String(desc) => desc.max_weight_to_satisfy(),
         })?;
-        weight.to_wu().try_into().map_err(|_| JsError::new("Weight exceeds u32"))
+        weight
+            .to_wu()
+            .try_into()
+            .map_err(|_| JsError::new("Weight exceeds u32"))
     }
 
     #[wasm_bindgen(js_name = fromString, skip_typescript)]
