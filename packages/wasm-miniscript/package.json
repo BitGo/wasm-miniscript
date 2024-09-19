@@ -40,7 +40,7 @@
     "build:ts-browser": "tsc --module es2020 --target es2020 --outDir dist/browser",
     "build:ts": "tsc && npm run build:ts-browser",
     "build": "npm run build:wasm && npm run build:ts",
-    "check-fmt": "prettier --check ."
+    "check-fmt": "prettier --check . && cargo fmt -- --check"
   },
   "devDependencies": {
     "@bitgo/utxo-lib": "^10.1.0",
