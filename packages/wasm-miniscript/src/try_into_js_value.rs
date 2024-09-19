@@ -1,7 +1,7 @@
 use wasm_bindgen::{JsError, JsValue};
 use js_sys::Array;
 use miniscript::{AbsLockTime, DefiniteDescriptorKey, Descriptor, DescriptorPublicKey, hash256, Miniscript, MiniscriptKey, RelLockTime, ScriptContext, Terminal, Threshold};
-use miniscript::descriptor::{ShInner, SortedMultiVec, TapTree, Tr, WshInner};
+use miniscript::descriptor::{DescriptorType, ShInner, SortedMultiVec, TapTree, Tr, WshInner};
 use miniscript::bitcoin::{PublicKey, XOnlyPublicKey};
 use miniscript::bitcoin::hashes::{hash160, ripemd160};
 use std::sync::Arc;
@@ -244,5 +244,12 @@ impl<Pk: MiniscriptKey + TryIntoJsValue> TryIntoJsValue for Descriptor<Pk> {
             Descriptor::Wsh(v) => js_obj!("Wsh" => v.as_inner()),
             Descriptor::Tr(v) => js_obj!("Tr" => v),
         }
+    }
+}
+
+impl TryIntoJsValue for DescriptorType {
+    fn try_to_js_value(&self) -> Result<JsValue, JsError> {
+        let str_from_enum = format!("{:?}", self);
+        Ok(JsValue::from_str(&str_from_enum))
     }
 }
