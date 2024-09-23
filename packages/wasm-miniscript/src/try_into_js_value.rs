@@ -158,6 +158,7 @@ impl<Pk: MiniscriptKey + TryIntoJsValue, Ctx: ScriptContext> TryIntoJsValue for 
             Terminal::Check(node) => js_obj!("Check" => node),
             Terminal::DupIf(node) => js_obj!("DupIf" => node),
             Terminal::Verify(node) => js_obj!("Verify" => node),
+            Terminal::Drop(node) => js_obj!("Drop" => node),
             Terminal::NonZero(node) => js_obj!("NonZero" => node),
             Terminal::ZeroNotEqual(node) => js_obj!("ZeroNotEqual" => node),
             Terminal::AndV(a, b) => js_obj!("AndV" => js_arr!(a, b)),
