@@ -1,5 +1,5 @@
 import * as utxolib from "@bitgo/utxo-lib";
-import { Psbt } from "../js";
+import { Descriptor, Psbt } from "../js";
 
 export function toWrappedPsbt(psbt: utxolib.bitgo.UtxoPsbt | Buffer | Uint8Array) {
   if (psbt instanceof utxolib.bitgo.UtxoPsbt) {
@@ -21,4 +21,14 @@ export function toUtxoPsbt(psbt: Psbt | Buffer | Uint8Array) {
     });
   }
   throw new Error("Invalid input");
+}
+
+export function updateInputWithDescriptor(
+  psbt: utxolib.bitgo.UtxoPsbt,
+  inputIndex: number,
+  descriptor: Descriptor,
+) {
+  const wrappedPsbt = toWrappedPsbt(psbt);
+  wrappedPsbt.updateInputWithDescriptor(inputIndex, descriptor);
+  psbt.data.inputs[inputIndex] = toUtxoPsbt(wrappedPsbt).data.inputs[inputIndex];
 }
