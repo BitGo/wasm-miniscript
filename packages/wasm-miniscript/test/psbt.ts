@@ -4,7 +4,7 @@ import { getPsbtFixtures } from "./psbtFixtures";
 import { Descriptor, Psbt } from "../js";
 
 import { getDescriptorForScriptType } from "./descriptorUtil";
-import { toUtxoPsbt, toWrappedPsbt } from "./psbt.util";
+import { toUtxoPsbt, toWrappedPsbt, updateInputWithDescriptor } from "./psbt.util";
 
 const rootWalletKeys = new utxolib.bitgo.RootWalletKeys(utxolib.testutil.getKeyTriple("wasm"));
 
@@ -25,11 +25,12 @@ function describeUpdateInputWithDescriptor(
     throw new Error("Could not find fullsigned fixture");
   }
 
-  describe("updateInputWithDescriptor", function () {
+  const descriptorStr = getDescriptorForScriptType(rootWalletKeys, scriptType, "internal");
+  const index = 0;
+  const descriptor = Descriptor.fromString(descriptorStr, "derivable");
+
+  describe("Wrapped PSBT updateInputWithDescriptor", function () {
     it("should update the input with the descriptor", function () {
-      const descriptorStr = getDescriptorForScriptType(rootWalletKeys, scriptType, "internal");
-      const index = 0;
-      const descriptor = Descriptor.fromString(descriptorStr, "derivable");
       const wrappedPsbt = toWrappedPsbt(psbt);
       wrappedPsbt.updateInputWithDescriptor(0, descriptor.atDerivationIndex(index));
       const updatedPsbt = toUtxoPsbt(wrappedPsbt);
@@ -44,6 +45,21 @@ function describeUpdateInputWithDescriptor(
       assertEqualBuffer(
         fullSignedFixture.psbt.clone().finalizeAllInputs().extractTransaction().toBuffer(),
         updatedPsbt.extractTransaction().toBuffer(),
+      );
+    });
+  });
+
+  describe("updateInputWithDescriptor util", function () {
+    it("should update the input with the descriptor", function () {
+      const cloned = psbt.clone();
+      updateInputWithDescriptor(cloned, 0, descriptor.atDerivationIndex(index));
+      cloned.signAllInputsHD(rootWalletKeys.triple[0]);
+      cloned.signAllInputsHD(rootWalletKeys.triple[2]);
+      cloned.finalizeAllInputs();
+
+      assertEqualBuffer(
+        fullSignedFixture.psbt.clone().finalizeAllInputs().extractTransaction().toBuffer(),
+        cloned.extractTransaction().toBuffer(),
       );
     });
   });
