@@ -1,33 +1,12 @@
 import * as utxolib from "@bitgo/utxo-lib";
 import * as assert from "node:assert";
-import { getPsbtFixtures, toPsbtWithPrevOutOnly } from "./psbtFixtures";
+import { getPsbtFixtures } from "./psbtFixtures";
 import { Descriptor, Psbt } from "../js";
 
 import { getDescriptorForScriptType } from "./descriptorUtil";
+import { toUtxoPsbt, toWrappedPsbt } from "./psbt.util";
 
 const rootWalletKeys = new utxolib.bitgo.RootWalletKeys(utxolib.testutil.getKeyTriple("wasm"));
-
-function toWrappedPsbt(psbt: utxolib.bitgo.UtxoPsbt | Buffer | Uint8Array) {
-  if (psbt instanceof utxolib.bitgo.UtxoPsbt) {
-    psbt = psbt.toBuffer();
-  }
-  if (psbt instanceof Buffer || psbt instanceof Uint8Array) {
-    return Psbt.deserialize(psbt);
-  }
-  throw new Error("Invalid input");
-}
-
-function toUtxoPsbt(psbt: Psbt | Buffer | Uint8Array) {
-  if (psbt instanceof Psbt) {
-    psbt = psbt.serialize();
-  }
-  if (psbt instanceof Buffer || psbt instanceof Uint8Array) {
-    return utxolib.bitgo.UtxoPsbt.fromBuffer(Buffer.from(psbt), {
-      network: utxolib.networks.bitcoin,
-    });
-  }
-  throw new Error("Invalid input");
-}
 
 function assertEqualBuffer(a: Buffer | Uint8Array, b: Buffer | Uint8Array, message?: string) {
   assert.strictEqual(Buffer.from(a).toString("hex"), Buffer.from(b).toString("hex"), message);
