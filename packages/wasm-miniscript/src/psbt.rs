@@ -57,9 +57,9 @@ impl WrapPsbt {
             WrapDescriptorEnum::Derivable(_, _) => Err(JsError::new(
                 "Cannot update output with a derivable descriptor",
             )),
-            WrapDescriptorEnum::String(_) => {
-                Err(JsError::new("Cannot update output with a string descriptor"))
-            }
+            WrapDescriptorEnum::String(_) => Err(JsError::new(
+                "Cannot update output with a string descriptor",
+            )),
         }
     }
 
