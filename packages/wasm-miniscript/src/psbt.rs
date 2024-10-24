@@ -43,6 +43,26 @@ impl WrapPsbt {
         }
     }
 
+    #[wasm_bindgen(js_name = updateOutputWithDescriptor)]
+    pub fn update_output_with_descriptor(
+        &mut self,
+        output_index: usize,
+        descriptor: WrapDescriptor,
+    ) -> Result<(), JsError> {
+        match descriptor.0 {
+            WrapDescriptorEnum::Definite(d) => self
+                .0
+                .update_output_with_descriptor(output_index, &d)
+                .map_err(JsError::from),
+            WrapDescriptorEnum::Derivable(_, _) => Err(JsError::new(
+                "Cannot update output with a derivable descriptor",
+            )),
+            WrapDescriptorEnum::String(_) => {
+                Err(JsError::new("Cannot update output with a string descriptor"))
+            }
+        }
+    }
+
     #[wasm_bindgen(js_name = finalize)]
     pub fn finalize_mut(&mut self) -> Result<(), JsError> {
         self.0
