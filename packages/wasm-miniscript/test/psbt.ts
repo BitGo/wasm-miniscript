@@ -1,10 +1,10 @@
 import * as utxolib from "@bitgo/utxo-lib";
 import * as assert from "node:assert";
-import { getPsbtFixtures } from "./psbtFixtures";
+import { getPsbtFixtures, PsbtStage } from "./psbtFixtures";
 import { Descriptor, Psbt } from "../js";
 
 import { getDescriptorForScriptType } from "./descriptorUtil";
-import { toUtxoPsbt, toWrappedPsbt, updateInputWithDescriptor } from "./psbt.util";
+import { assertEqualPsbt, toUtxoPsbt, toWrappedPsbt, updateInputWithDescriptor } from "./psbt.util";
 
 const rootWalletKeys = new utxolib.bitgo.RootWalletKeys(utxolib.testutil.getKeyTriple("wasm"));
 
@@ -14,15 +14,26 @@ function assertEqualBuffer(a: Buffer | Uint8Array, b: Buffer | Uint8Array, messa
 
 const fixtures = getPsbtFixtures(rootWalletKeys);
 
+function getWasmDescriptor(
+  scriptType: utxolib.bitgo.outputScripts.ScriptType2Of3,
+  scope: "internal" | "external",
+) {
+  return Descriptor.fromString(
+    getDescriptorForScriptType(rootWalletKeys, scriptType, scope),
+    "derivable",
+  );
+}
+
 function describeUpdateInputWithDescriptor(
   psbt: utxolib.bitgo.UtxoPsbt,
   scriptType: utxolib.bitgo.outputScripts.ScriptType2Of3,
 ) {
-  const fullSignedFixture = fixtures.find(
-    (f) => f.scriptType === scriptType && f.stage === "fullsigned",
-  );
-  if (!fullSignedFixture) {
-    throw new Error("Could not find fullsigned fixture");
+  function getFixtureAtStage(stage: PsbtStage) {
+    const f = fixtures.find((f) => f.scriptType === scriptType && f.stage === stage);
+    if (!f) {
+      throw new Error(`Could not find fixture for scriptType ${scriptType} and stage ${stage}`);
+    }
+    return f;
   }
 
   const descriptorStr = getDescriptorForScriptType(rootWalletKeys, scriptType, "internal");
@@ -33,7 +44,9 @@ function describeUpdateInputWithDescriptor(
     it("should update the input with the descriptor", function () {
       const wrappedPsbt = toWrappedPsbt(psbt);
       wrappedPsbt.updateInputWithDescriptor(0, descriptor.atDerivationIndex(index));
+      wrappedPsbt.updateOutputWithDescriptor(0, descriptor.atDerivationIndex(index));
       const updatedPsbt = toUtxoPsbt(wrappedPsbt);
+      assertEqualPsbt(updatedPsbt, getFixtureAtStage("unsigned").psbt);
       updatedPsbt.signAllInputsHD(rootWalletKeys.triple[0]);
       updatedPsbt.signAllInputsHD(rootWalletKeys.triple[2]);
       const wrappedSignedPsbt = toWrappedPsbt(updatedPsbt);
@@ -43,7 +56,11 @@ function describeUpdateInputWithDescriptor(
       assertEqualBuffer(updatedPsbt.toBuffer(), wrappedSignedPsbt.serialize());
 
       assertEqualBuffer(
-        fullSignedFixture.psbt.clone().finalizeAllInputs().extractTransaction().toBuffer(),
+        getFixtureAtStage("fullsigned")
+          .psbt.clone()
+          .finalizeAllInputs()
+          .extractTransaction()
+          .toBuffer(),
         updatedPsbt.extractTransaction().toBuffer(),
       );
     });
@@ -58,7 +75,11 @@ function describeUpdateInputWithDescriptor(
       cloned.finalizeAllInputs();
 
       assertEqualBuffer(
-        fullSignedFixture.psbt.clone().finalizeAllInputs().extractTransaction().toBuffer(),
+        getFixtureAtStage("fullsigned")
+          .psbt.clone()
+          .finalizeAllInputs()
+          .extractTransaction()
+          .toBuffer(),
         cloned.extractTransaction().toBuffer(),
       );
     });
