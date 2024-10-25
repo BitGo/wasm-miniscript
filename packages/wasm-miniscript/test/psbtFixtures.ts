@@ -1,7 +1,7 @@
 import * as utxolib from "@bitgo/utxo-lib";
 import { RootWalletKeys } from "@bitgo/utxo-lib/dist/src/bitgo";
 
-type PsbtStage = "bare" | "unsigned" | "halfsigned" | "fullsigned";
+export type PsbtStage = "bare" | "unsigned" | "halfsigned" | "fullsigned";
 
 export function toPsbtWithPrevOutOnly(psbt: utxolib.bitgo.UtxoPsbt) {
   const psbtCopy = utxolib.bitgo.UtxoPsbt.createPsbt({
@@ -43,7 +43,8 @@ function getPsbtWithScriptTypeAndStage(
     [
       {
         value: BigInt(1e8 - 1000),
-        scriptType: "p2sh",
+        scriptType,
+        isInternalAddress: true,
       },
     ],
     utxolib.networks.bitcoin,
