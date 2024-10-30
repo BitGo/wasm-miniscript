@@ -4,6 +4,15 @@
   "workspaces": [
     "packages/*"
   ],
+  "release": {
+    "branches": [
+      "master",
+      {
+        "name": "beta",
+        "prerelease": true
+      }
+    ]
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/BitGo/wasm-miniscript.git"

@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - beta
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
