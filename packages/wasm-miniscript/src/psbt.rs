@@ -27,9 +27,9 @@ impl WrapPsbt {
     pub fn update_input_with_descriptor(
         &mut self,
         input_index: usize,
-        descriptor: WrapDescriptor,
+        descriptor: &WrapDescriptor,
     ) -> Result<(), JsError> {
-        match descriptor.0 {
+        match &descriptor.0 {
             WrapDescriptorEnum::Definite(d) => self
                 .0
                 .update_input_with_descriptor(input_index, &d)
@@ -47,9 +47,9 @@ impl WrapPsbt {
     pub fn update_output_with_descriptor(
         &mut self,
         output_index: usize,
-        descriptor: WrapDescriptor,
+        descriptor: &WrapDescriptor,
     ) -> Result<(), JsError> {
-        match descriptor.0 {
+        match &descriptor.0 {
             WrapDescriptorEnum::Definite(d) => self
                 .0
                 .update_output_with_descriptor(output_index, &d)

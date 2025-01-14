@@ -43,8 +43,9 @@ function describeUpdateInputWithDescriptor(
   describe("Wrapped PSBT updateInputWithDescriptor", function () {
     it("should update the input with the descriptor", function () {
       const wrappedPsbt = toWrappedPsbt(psbt);
-      wrappedPsbt.updateInputWithDescriptor(0, descriptor.atDerivationIndex(index));
-      wrappedPsbt.updateOutputWithDescriptor(0, descriptor.atDerivationIndex(index));
+      const descriptorAtDerivation = descriptor.atDerivationIndex(index);
+      wrappedPsbt.updateInputWithDescriptor(0, descriptorAtDerivation);
+      wrappedPsbt.updateOutputWithDescriptor(0, descriptorAtDerivation);
       const updatedPsbt = toUtxoPsbt(wrappedPsbt);
       assertEqualPsbt(updatedPsbt, getFixtureAtStage("unsigned").psbt);
       updatedPsbt.signAllInputsHD(rootWalletKeys.triple[0]);
