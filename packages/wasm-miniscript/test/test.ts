@@ -29,6 +29,7 @@ function getScriptPubKeyLength(descType: string): number {
     case "Pkh":
       return 25;
     case "Wsh":
+    case "Tr":
       return 34;
     case "Bare":
       throw new Error("cannot determine scriptPubKey length for Bare descriptor");
@@ -50,6 +51,7 @@ function assertKnownDescriptorType(descriptor: Descriptor) {
     case "Wsh":
     case "Wpkh":
     case "ShWpkh":
+    case "Tr":
       break;
     default:
       throw new Error("unexpected descriptor type " + descriptor.descType());
@@ -94,6 +96,7 @@ describe("Descriptor fixtures", function () {
           // FIXME(BTC-1337): xprvs with hardened derivations are not supported yet
           console.log("Skipping encoding test for fixture", fixture.descriptor, i);
         }
+
         assert.ok(Number.isInteger(descriptor.maxWeightToSatisfy()));
         assertKnownDescriptorType(descriptor);
         await assertEqualAst(__dirname + `/fixtures/${i}.json`, descriptor);
