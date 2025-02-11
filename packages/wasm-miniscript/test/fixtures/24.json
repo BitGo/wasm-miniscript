@@ -1,0 +1,12 @@
+{
+  "descriptor": "pk(xpub68NZiKmJWnxxS6aaHmn81bvJeTESw724CRDs6HbuccFQN9Ku14VQrADWgqbhhTHBaohPX4CjNLf9fq9MYo6oDaPPLPxSb7gwQN3ih19Zm4Y/0)#9rspda0y",
+  "ast": {
+    "Bare": {
+      "Check": {
+        "PkK": {
+          "XPub": "xpub68NZiKmJWnxxS6aaHmn81bvJeTESw724CRDs6HbuccFQN9Ku14VQrADWgqbhhTHBaohPX4CjNLf9fq9MYo6oDaPPLPxSb7gwQN3ih19Zm4Y/0"
+        }
+      }
+    }
+  }
+}
