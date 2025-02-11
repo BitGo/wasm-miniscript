@@ -45,11 +45,7 @@ describe("Descriptor fixtures", function () {
       if (fixture.checksumRequired === false) {
         descriptorString = removeChecksum(descriptorString);
       }
-      let expected = fixture.descriptor;
-      if (i === 56 || i === 57) {
-        // for reasons I do not really understand, the `a:and_n` gets converted into `a:and_b` for these
-        expected = expected.replace("and_n", "and_b");
-      }
+      const expected = fixture.descriptor;
       assert.strictEqual(descriptorString, expected);
 
       assert.doesNotThrow(() =>
