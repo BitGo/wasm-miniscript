@@ -1,6 +1,6 @@
 {
   "descriptor": "sh(wsh(pkh(03a34b99f22c790c4e36b2b3c2c35a36db06226e41c692fc82b8b56ac1c540c5bd)))#8mnh2d6x",
-  "ast": {
+  "wasmNode": {
     "Sh": {
       "Wsh": {
         "Ms": {
@@ -10,6 +10,13 @@
             }
           }
         }
+      }
+    }
+  },
+  "ast": {
+    "sh": {
+      "wsh": {
+        "pkh": "03a34b99f22c790c4e36b2b3c2c35a36db06226e41c692fc82b8b56ac1c540c5bd"
       }
     }
   }

@@ -9,6 +9,6 @@
     "declaration": true,
     "outDir": "dist"
   },
-  "include": ["./js/index.ts"],
+  "include": ["./js/index.ts", "test/**/*.ts"],
   "exclude": ["node_modules", "./js/wasm/**/*"]
 }

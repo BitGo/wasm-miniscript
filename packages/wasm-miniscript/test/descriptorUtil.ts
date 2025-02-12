@@ -2,6 +2,7 @@ import * as fs from "fs/promises";
 import * as utxolib from "@bitgo/utxo-lib";
 import { Descriptor } from "../js";
 import * as assert from "node:assert";
+import { DescriptorNode, MiniscriptNode } from "../js/ast";
 
 async function assertEqualJSON(path: string, value: unknown): Promise<void> {
   try {
@@ -16,8 +17,15 @@ async function assertEqualJSON(path: string, value: unknown): Promise<void> {
   }
 }
 
-export async function assertEqualAst(path: string, descriptor: Descriptor): Promise<void> {
-  await assertEqualJSON(path, { descriptor: descriptor.toString(), ast: descriptor.node() });
+export async function assertEqualFixture(
+  path: string,
+  content: {
+    descriptor: string;
+    wasmNode: unknown;
+    ast: DescriptorNode | MiniscriptNode;
+  },
+): Promise<void> {
+  await assertEqualJSON(path, content);
 }
 
 /** Expand a template with the given root wallet keys and chain code */
