@@ -30,10 +30,10 @@ endef
 js/wasm/:
 	$(call BUILD,$@,nodejs)
 
-.PHONY: dist/wasm/
-dist/wasm/:
+.PHONY: dist/node/js/wasm/
+dist/node/js/wasm/:
 	$(call BUILD,$@,nodejs)
 
-.PHONY: dist/browser/wasm/
-dist/browser/wasm/:
+.PHONY: dist/browser/js/wasm/
+dist/browser/js/wasm/:
 	$(call BUILD,$@,browser)
