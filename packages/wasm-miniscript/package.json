@@ -24,7 +24,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "sideEffects": [
-    "./dist/wasm/wasm_miniscript.js"
+    "./dist/wasm/wasm_miniscript.js",
+    "./dist/browser/wasm/wasm_miniscript.js"
   ],
   "browser": {
     "./dist/index.js": "./dist/browser/index.js",
