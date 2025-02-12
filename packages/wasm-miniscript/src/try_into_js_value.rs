@@ -92,7 +92,7 @@ impl TryIntoJsValue for AbsLockTime {
 
 impl TryIntoJsValue for RelLockTime {
     fn try_to_js_value(&self) -> Result<JsValue, JsError> {
-        Ok(JsValue::from_str(&self.to_string()))
+        Ok(JsValue::from_f64(self.to_consensus_u32() as f64))
     }
 }
 

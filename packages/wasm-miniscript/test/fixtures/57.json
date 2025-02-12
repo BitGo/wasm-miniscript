@@ -30,7 +30,7 @@
                   {
                     "ZeroNotEqual": {
                       "Older": {
-                        "relLockTime": "2"
+                        "relLockTime": 2
                       }
                     }
                   },
@@ -61,7 +61,7 @@
                 ]
               },
               {
-                "n:older": "2"
+                "n:older": 2
               }
             ]
           }
