@@ -12,8 +12,8 @@
     "dist/*/js/wasm/wasm_miniscript_bg.js",
     "dist/*/js/wasm/wasm_miniscript_bg.wasm",
     "dist/*/js/wasm/wasm_miniscript_bg.wasm.d.ts",
-    "dist/*/js/index.d.ts",
-    "dist/*/js/index.js"
+    "dist/*/js/ast/*",
+    "dist/*/js/index.*"
   ],
   "main": "dist/node/js/index.js",
   "types": "dist/node/js/index.d.ts",

@@ -10,6 +10,7 @@ export type ScriptContext = "tap" | "segwitv0" | "legacy";
 
 declare module "./wasm/wasm_miniscript" {
   interface WrapDescriptor {
+    /** These are not the same types of nodes as in the ast module */
     node(): unknown;
   }
 
@@ -18,6 +19,7 @@ declare module "./wasm/wasm_miniscript" {
   }
 
   interface WrapMiniscript {
+    /** These are not the same types of nodes as in the ast module */
     node(): unknown;
   }
 
@@ -30,3 +32,5 @@ declare module "./wasm/wasm_miniscript" {
 export { WrapDescriptor as Descriptor } from "./wasm/wasm_miniscript";
 export { WrapMiniscript as Miniscript } from "./wasm/wasm_miniscript";
 export { WrapPsbt as Psbt } from "./wasm/wasm_miniscript";
+
+export * as ast from "./ast";
