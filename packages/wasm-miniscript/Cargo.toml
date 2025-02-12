@@ -1,6 +1,6 @@
 [package]
 name = "wasm-miniscript"
-version = "0.1.0"
+version = "0.1.0-opdrop"
 edition = "2021"
 
 [lib]
@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 [dependencies]
 wasm-bindgen = "0.2"
 js-sys = "0.3"
-miniscript = { version = "12.3.0" }
+miniscript = { git = "https://github.com/BitGo/rust-miniscript", branch = "opdrop" }
 
 [profile.release]
 # this is required to make webpack happy

@@ -78,6 +78,8 @@ function fromUnknown(v: unknown): Node | Node[] {
         return wrap("v", value);
       case "ZeroNotEqual":
         return wrap("n", value);
+      case "Drop":
+        return wrap("r", value);
 
       // Conjunctions
       case "AndV":

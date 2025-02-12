@@ -126,9 +126,8 @@ checksum = "04cbf5b083de1c7e0222a7a51dbfdba1cbe1c6ab0b15e29fff3f6c077fd9cd9f"
 
 [[package]]
 name = "miniscript"
-version = "12.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bd3c9608217b0d6fa9c9c8ddd875b85ab72bd4311cfc8db35e1b5a08fc11f4d"
+version = "12.2.0"
+source = "git+https://github.com/BitGo/rust-miniscript?branch=opdrop#eb984856a2e560a7ee98b248519eb7ef5d650e5e"
 dependencies = [
  "bech32",
  "bitcoin",
@@ -266,7 +265,7 @@ dependencies = [
 
 [[package]]
 name = "wasm-miniscript"
-version = "0.1.0"
+version = "0.1.0-opdrop"
 dependencies = [
  "js-sys",
  "miniscript",
