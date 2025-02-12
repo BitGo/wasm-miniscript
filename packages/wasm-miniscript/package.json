@@ -7,39 +7,29 @@
     "url": "git+https://github.com/BitGo/wasm-miniscript.git"
   },
   "files": [
-    "dist/wasm/wasm_miniscript.d.ts",
-    "dist/wasm/wasm_miniscript.js",
-    "dist/wasm/wasm_miniscript_bg.wasm",
-    "dist/wasm/wasm_miniscript_bg.wasm.d.ts",
-    "dist/browser/wasm/wasm_miniscript.d.ts",
-    "dist/browser/wasm/wasm_miniscript.js",
-    "dist/browser/wasm/wasm_miniscript_bg.js",
-    "dist/browser/wasm/wasm_miniscript_bg.wasm",
-    "dist/browser/wasm/wasm_miniscript_bg.wasm.d.ts",
-    "dist/browser/index.d.ts",
-    "dist/browser/index.js",
-    "dist/index.js",
-    "dist/index.d.ts"
+    "dist/*/js/wasm/wasm_miniscript.d.ts",
+    "dist/*/js/wasm/wasm_miniscript.js",
+    "dist/*/js/wasm/wasm_miniscript_bg.js",
+    "dist/*/js/wasm/wasm_miniscript_bg.wasm",
+    "dist/*/js/wasm/wasm_miniscript_bg.wasm.d.ts",
+    "dist/*/js/index.d.ts",
+    "dist/*/js/index.js"
   ],
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/node/js/index.js",
+  "types": "dist/node/js/index.d.ts",
   "sideEffects": [
-    "./dist/wasm/wasm_miniscript.js",
-    "./dist/browser/wasm/wasm_miniscript.js"
+    "./dist/node/js/wasm/wasm_miniscript.js",
+    "./dist/browser/js/wasm/wasm_miniscript.js"
   ],
   "browser": {
-    "./dist/index.js": "./dist/browser/index.js",
-    "./dist/index.d.ts": "./dist/browser/index.d.ts",
-    "./dist/wasm/wasm_miniscript_bg.wasm": "./dist/browser/wasm/wasm_miniscript_bg.wasm",
-    "./dist/wasm/wasm_miniscript.js": "./dist/browser/wasm/wasm_miniscript.js",
-    "./dist/wasm/wasm_miniscript_bg.js": "./dist/browser/wasm/wasm_miniscript_bg.js",
-    "./dist/wasm/wasm_miniscript.d.ts": "./dist/browser/wasm/wasm_miniscript.d.ts"
+    "./dist/node/js/index.js": "./dist/browser/js/index.js"
   },
   "scripts": {
     "test": "mocha --recursive test",
-    "build:wasm": "make js/wasm/ && make dist/wasm/ && make dist/browser/wasm/",
-    "build:ts-browser": "tsc --module es2020 --target es2020 --outDir dist/browser",
-    "build:ts": "tsc && npm run build:ts-browser",
+    "build:wasm": "make js/wasm/ && make dist/node/js/wasm/ && make dist/browser/js/wasm/",
+    "build:ts-browser": "tsc --noEmit false --module es2020 --target es2020 --outDir dist/browser",
+    "build:ts-node": "tsc --noEmit false --outDir dist/node",
+    "build:ts": "npm run build:ts-browser && npm run build:ts-node",
     "build": "npm run build:wasm && npm run build:ts",
     "check-fmt": "prettier --check . && cargo fmt -- --check"
   },
