@@ -1,6 +1,6 @@
 {
   "descriptor": "wsh(and_v(v:ripemd160(095ff41131e5946f3c85f79e44adbcf8e27e080e),multi(1,xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL,xpub68NZiKmJWnxxS6aaHmn81bvJeTESw724CRDs6HbuccFQN9Ku14VQrADWgqbhhTHBaohPX4CjNLf9fq9MYo6oDaPPLPxSb7gwQN3ih19Zm4Y/0)))#hv6qsxrp",
-  "ast": {
+  "wasmNode": {
     "Wsh": {
       "Ms": {
         "AndV": [
@@ -22,6 +22,22 @@
           }
         ]
       }
+    }
+  },
+  "ast": {
+    "wsh": {
+      "and_v": [
+        {
+          "v:ripemd160": "095ff41131e5946f3c85f79e44adbcf8e27e080e"
+        },
+        {
+          "multi": [
+            1,
+            "xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL",
+            "xpub68NZiKmJWnxxS6aaHmn81bvJeTESw724CRDs6HbuccFQN9Ku14VQrADWgqbhhTHBaohPX4CjNLf9fq9MYo6oDaPPLPxSb7gwQN3ih19Zm4Y/0"
+          ]
+        }
+      ]
     }
   }
 }
