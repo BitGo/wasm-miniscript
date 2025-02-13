@@ -12,7 +12,10 @@ function getDescriptorOpDropP2ms(locktime: number, keys: utxolib.BIP32Interface[
   return `wsh(and_v(r:after(${locktime}),multi(2,${xpubs.join(",")})))`;
 }
 
-describe("CLV with OP_DROP", () => {
+describe("CLV with OP_DROP", function () {
+  // OP_DROP enabled in this branch
+  // return;
+
   const locktime = 1024;
   const descriptor = Descriptor.fromString(
     getDescriptorOpDropP2ms(locktime, rootWalletKeys.triple),
