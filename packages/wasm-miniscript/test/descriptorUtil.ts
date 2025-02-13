@@ -1,4 +1,32 @@
+import * as fs from "fs/promises";
 import * as utxolib from "@bitgo/utxo-lib";
+import { Descriptor } from "../js";
+import * as assert from "node:assert";
+import { DescriptorNode, MiniscriptNode } from "../js/ast";
+
+async function assertEqualJSON(path: string, value: unknown): Promise<void> {
+  try {
+    const data = JSON.parse(await fs.readFile(path, "utf8"));
+    assert.deepStrictEqual(data, value);
+  } catch (e: any) {
+    if (e.code === "ENOENT") {
+      await fs.writeFile(path, JSON.stringify(value, null, 2));
+      throw new Error("Expected file not found, wrote it instead");
+    }
+    throw e;
+  }
+}
+
+export async function assertEqualFixture(
+  path: string,
+  content: {
+    descriptor: string;
+    wasmNode: unknown;
+    ast: DescriptorNode | MiniscriptNode;
+  },
+): Promise<void> {
+  await assertEqualJSON(path, content);
+}
 
 /** Expand a template with the given root wallet keys and chain code */
 function expand(template: string, rootWalletKeys: utxolib.bitgo.RootWalletKeys, chainCode: number) {

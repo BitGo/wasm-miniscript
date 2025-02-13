@@ -1,16 +1,9 @@
 import * as assert from "assert";
-import { Miniscript, Descriptor } from "../js";
+import { Descriptor } from "../js";
 import { fixtures } from "./descriptorFixtures";
-
-describe("AST", function () {
-  it("should get ast", function () {
-    const pubkey = Buffer.alloc(32, 1).toString("hex");
-    const result = Miniscript.fromString(`multi_a(1,${pubkey})`, "tap");
-    console.dir(result.node(), { depth: null });
-    console.dir(result.encode(), { depth: null });
-    console.dir(Miniscript.fromBitcoinScript(result.encode(), "tap").toString());
-  });
-});
+import { assertEqualFixture } from "./descriptorUtil";
+import { fromDescriptor } from "../js/ast";
+import { formatNode } from "../js/ast";
 
 function removeChecksum(descriptor: string): string {
   const parts = descriptor.split("#");
@@ -28,6 +21,7 @@ function getScriptPubKeyLength(descType: string): number {
     case "Pkh":
       return 25;
     case "Wsh":
+    case "Tr":
       return 34;
     case "Bare":
       throw new Error("cannot determine scriptPubKey length for Bare descriptor");
@@ -36,63 +30,87 @@ function getScriptPubKeyLength(descType: string): number {
   }
 }
 
+function isDerivable(i: number): boolean {
+  return ![33, 34, 35, 41, 42, 43].includes(i);
+}
+
+function assertKnownDescriptorType(descriptor: Descriptor) {
+  switch (descriptor.descType()) {
+    case "Bare":
+    case "Pkh":
+    case "Sh":
+    case "ShWsh":
+    case "Wsh":
+    case "Wpkh":
+    case "ShWpkh":
+    case "Tr":
+      break;
+    default:
+      throw new Error("unexpected descriptor type " + descriptor.descType());
+  }
+}
+
 describe("Descriptor fixtures", function () {
   fixtures.valid.forEach((fixture, i) => {
-    it("should parse fixture " + i, function () {
-      const descriptor = Descriptor.fromString(fixture.descriptor, "string");
-      assert.doesNotThrow(() => descriptor.node());
-      let descriptorString = descriptor.toString();
-      if (fixture.checksumRequired === false) {
-        descriptorString = removeChecksum(descriptorString);
-      }
-      const expected = fixture.descriptor;
-      assert.strictEqual(descriptorString, expected);
+    describe("fixture " + i, function () {
+      let descriptor: Descriptor;
 
-      assert.doesNotThrow(() =>
-        Descriptor.fromString(fixture.descriptor, "derivable").atDerivationIndex(0),
-      );
+      before("setup descriptor", function () {
+        descriptor = Descriptor.fromString(fixture.descriptor, "derivable");
+      });
 
-      const nonDerivable = [33, 34, 35, 41, 42, 43];
-      if (nonDerivable.includes(i)) {
-        // FIXME(BTC-1337): xprvs with hardened derivations are not supported yet
-        console.log("Skipping encoding test for fixture", fixture.descriptor, i);
-      } else {
-        assert.doesNotThrow(() =>
-          Descriptor.fromString(fixture.descriptor, "derivable").atDerivationIndex(0).encode(),
-        );
-
-        let descriptorString = fixture.descriptor;
+      it("should round-trip (pkType string)", function () {
+        let descriptorString = Descriptor.fromString(fixture.descriptor, "string").toString();
         if (fixture.checksumRequired === false) {
           descriptorString = removeChecksum(descriptorString);
         }
-        const descriptor = Descriptor.fromString(descriptorString, "derivable");
-        const scriptPubKey = Buffer.from(
-          descriptor.atDerivationIndex(fixture.index ?? 0).scriptPubkey(),
+        assert.strictEqual(descriptorString, fixture.descriptor);
+      });
+
+      it("should parse (pkType derivable)", async function () {
+        const descriptor = Descriptor.fromString(fixture.descriptor, "derivable");
+
+        assert.doesNotThrow(() =>
+          Descriptor.fromString(fixture.descriptor, "derivable").atDerivationIndex(0),
         );
-        assert.strictEqual(scriptPubKey.toString("hex"), fixture.script);
-        if (descriptor.descType() !== "Bare") {
-          assert.strictEqual(
-            scriptPubKey.length,
-            getScriptPubKeyLength(descriptor.descType()),
-            `Unexpected scriptPubKey length for descriptor ${descriptor.descType()}: ${scriptPubKey.length}`,
+
+        if (isDerivable(i)) {
+          if (descriptor.descType() !== "Tr") {
+            assert.doesNotThrow(() => descriptor.atDerivationIndex(0).encode());
+          }
+
+          const scriptPubKey = Buffer.from(
+            descriptor.atDerivationIndex(fixture.index ?? 0).scriptPubkey(),
           );
+          assert.strictEqual(scriptPubKey.toString("hex"), fixture.script);
+          if (descriptor.descType() !== "Bare") {
+            assert.strictEqual(
+              scriptPubKey.length,
+              getScriptPubKeyLength(descriptor.descType()),
+              `Unexpected scriptPubKey length for descriptor ${descriptor.descType()}: ${scriptPubKey.length}`,
+            );
+          }
+        } else {
+          // FIXME(BTC-1337): xprvs with hardened derivations are not supported yet
+          console.log("Skipping encoding test for fixture", fixture.descriptor, i);
         }
-      }
 
-      assert.ok(Number.isInteger(descriptor.maxWeightToSatisfy()));
+        assert.ok(Number.isInteger(descriptor.maxWeightToSatisfy()));
+        assertKnownDescriptorType(descriptor);
+      });
 
-      switch (descriptor.descType()) {
-        case "Bare":
-        case "Pkh":
-        case "Sh":
-        case "ShWsh":
-        case "Wsh":
-        case "Wpkh":
-        case "ShWpkh":
-          break;
-        default:
-          throw new Error("unexpected descriptor type " + descriptor.descType());
-      }
+      it("can round-trip with formatNode(toWasmNode(.))", async function () {
+        const ast = fromDescriptor(descriptor);
+        assert.strictEqual(formatNode(ast), removeChecksum(descriptor.toString()));
+      });
+
+      it("has expected fixture", async function () {
+        await assertEqualFixture(__dirname + `/fixtures/${i}.json`, {
+          descriptor: descriptor.toString(),
+          wasmNode: descriptor.node(),
+          ast: fromDescriptor(descriptor),
+        });
+      });
     });
   });
 });
