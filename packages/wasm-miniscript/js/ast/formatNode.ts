@@ -48,6 +48,8 @@ type Miniscript =
   | Wrap<{ older: number }>
   | Wrap<{ after: number }>;
 
+type TapTree = [TapTree, TapTree] | Miniscript;
+
 // Top level descriptor expressions
 // https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md#reference
 type Descriptor =
@@ -57,12 +59,21 @@ type Descriptor =
   | { pkh: Key }
   | { wpkh: Key }
   | { combo: Key }
-  | { tr: [Key, Miniscript] }
+  | { tr: [Key, TapTree] }
   | { addr: string }
   | { raw: string }
   | { rawtr: string };
 
 type Node = Miniscript | Descriptor | number | string;
+
+/**
+ * Format a TapTree as a string
+ * If the argument is an array, descend recursively with formatTr and wrap result in curly braces
+ * Otherwise, format the node with formatN
+ */
+function formatTr(tree: TapTree): string {
+  return Array.isArray(tree) ? `{` + tree.map(formatTr).join(",") + `}` : formatN(tree);
+}
 
 function formatN(n: Node | Node[]): string {
   if (typeof n === "string") {
@@ -80,11 +91,16 @@ function formatN(n: Node | Node[]): string {
       throw new Error(`Invalid node: ${n}`);
     }
     const [name, value] = entries[0];
+    if (name === "tr" && Array.isArray(value)) {
+      const [key, tree] = value;
+      return formatN({ tr: formatN([key, formatTr(tree)]) });
+    }
     return `${name}(${formatN(value)})`;
   }
   throw new Error(`Invalid node: ${n}`);
 }
 
+export type TapTreeNode = TapTree;
 export type MiniscriptNode = Miniscript;
 export type DescriptorNode = Descriptor;
 

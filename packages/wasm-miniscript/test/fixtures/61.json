@@ -1,0 +1,159 @@
+{
+  "descriptor": "tr(50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0,{and_v(and_v(v:pk(7b6a08504c46336f985a5787a5423eb18c10b149fef29cd3316ad86f565cd2b9),v:multi_a(1,850854d26df93570748d94e3da361f134c522f7970bd7f8701a164547308a900,a037b663bf29e98b59d7d81567d2ab9d9824dd9a16dc7489b81d5b86f936d9c3)),multi_a(2,2f3432bf9054e482041b890e084bc1a34cfbc0b63aded113bfa36b6f2402832b,6672282496e17eccaae560aac4d9fe85d8c166a4aa43f51fa8963c80a165831f)),{and_v(v:pk(7b6a08504c46336f985a5787a5423eb18c10b149fef29cd3316ad86f565cd2b9),multi_a(2,2f3432bf9054e482041b890e084bc1a34cfbc0b63aded113bfa36b6f2402832b,6672282496e17eccaae560aac4d9fe85d8c166a4aa43f51fa8963c80a165831f)),and_v(v:pk(7b6a08504c46336f985a5787a5423eb18c10b149fef29cd3316ad86f565cd2b9),older(100))}})#cfz66mzw",
+  "wasmNode": {
+    "Tr": [
+      {
+        "Single": "50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0"
+      },
+      {
+        "Tree": [
+          {
+            "AndV": [
+              {
+                "AndV": [
+                  {
+                    "Verify": {
+                      "Check": {
+                        "PkK": {
+                          "Single": "7b6a08504c46336f985a5787a5423eb18c10b149fef29cd3316ad86f565cd2b9"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "Verify": {
+                      "MultiA": [
+                        1,
+                        {
+                          "Single": "850854d26df93570748d94e3da361f134c522f7970bd7f8701a164547308a900"
+                        },
+                        {
+                          "Single": "a037b663bf29e98b59d7d81567d2ab9d9824dd9a16dc7489b81d5b86f936d9c3"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "MultiA": [
+                  2,
+                  {
+                    "Single": "2f3432bf9054e482041b890e084bc1a34cfbc0b63aded113bfa36b6f2402832b"
+                  },
+                  {
+                    "Single": "6672282496e17eccaae560aac4d9fe85d8c166a4aa43f51fa8963c80a165831f"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Tree": [
+              {
+                "AndV": [
+                  {
+                    "Verify": {
+                      "Check": {
+                        "PkK": {
+                          "Single": "7b6a08504c46336f985a5787a5423eb18c10b149fef29cd3316ad86f565cd2b9"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "MultiA": [
+                      2,
+                      {
+                        "Single": "2f3432bf9054e482041b890e084bc1a34cfbc0b63aded113bfa36b6f2402832b"
+                      },
+                      {
+                        "Single": "6672282496e17eccaae560aac4d9fe85d8c166a4aa43f51fa8963c80a165831f"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "AndV": [
+                  {
+                    "Verify": {
+                      "Check": {
+                        "PkK": {
+                          "Single": "7b6a08504c46336f985a5787a5423eb18c10b149fef29cd3316ad86f565cd2b9"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "Older": {
+                      "relLockTime": 100
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "ast": {
+    "tr": [
+      "50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0",
+      [
+        {
+          "and_v": [
+            {
+              "and_v": [
+                {
+                  "v:pk": "7b6a08504c46336f985a5787a5423eb18c10b149fef29cd3316ad86f565cd2b9"
+                },
+                {
+                  "v:multi_a": [
+                    1,
+                    "850854d26df93570748d94e3da361f134c522f7970bd7f8701a164547308a900",
+                    "a037b663bf29e98b59d7d81567d2ab9d9824dd9a16dc7489b81d5b86f936d9c3"
+                  ]
+                }
+              ]
+            },
+            {
+              "multi_a": [
+                2,
+                "2f3432bf9054e482041b890e084bc1a34cfbc0b63aded113bfa36b6f2402832b",
+                "6672282496e17eccaae560aac4d9fe85d8c166a4aa43f51fa8963c80a165831f"
+              ]
+            }
+          ]
+        },
+        [
+          {
+            "and_v": [
+              {
+                "v:pk": "7b6a08504c46336f985a5787a5423eb18c10b149fef29cd3316ad86f565cd2b9"
+              },
+              {
+                "multi_a": [
+                  2,
+                  "2f3432bf9054e482041b890e084bc1a34cfbc0b63aded113bfa36b6f2402832b",
+                  "6672282496e17eccaae560aac4d9fe85d8c166a4aa43f51fa8963c80a165831f"
+                ]
+              }
+            ]
+          },
+          {
+            "and_v": [
+              {
+                "v:pk": "7b6a08504c46336f985a5787a5423eb18c10b149fef29cd3316ad86f565cd2b9"
+              },
+              {
+                "older": 100
+              }
+            ]
+          }
+        ]
+      ]
+    ]
+  }
+}
