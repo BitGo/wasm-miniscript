@@ -50,14 +50,32 @@ function assertKnownDescriptorType(descriptor: Descriptor) {
   }
 }
 
+function assertIsErrorUnknownWrapper(error: unknown, wrapper: string) {
+  assert.ok(error instanceof Error);
+  assert.ok(error.message.includes(`Error: unknown wrapper «${wrapper}»`));
+}
+
 describe("Descriptor fixtures", function () {
   fixtures.valid.forEach((fixture, i) => {
     describe("fixture " + i, function () {
+      const isOpDropFixture = i === 59;
       let descriptor: Descriptor;
 
       before("setup descriptor", function () {
-        descriptor = Descriptor.fromString(fixture.descriptor, "derivable");
+        try {
+          descriptor = Descriptor.fromString(fixture.descriptor, "derivable");
+        } catch (e) {
+          if (isOpDropFixture) {
+            assertIsErrorUnknownWrapper(e, "r:");
+            return;
+          }
+          throw e;
+        }
       });
+
+      if (isOpDropFixture) {
+        return;
+      }
 
       it("should round-trip (pkType string)", function () {
         let descriptorString = Descriptor.fromString(fixture.descriptor, "string").toString();

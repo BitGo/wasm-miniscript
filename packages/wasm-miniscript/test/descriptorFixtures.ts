@@ -351,6 +351,12 @@ export const fixtures = {
       script: "51207e8c409f0ab01197f9676efc3a9505f1f09ed0f21693e46a3aa3b6b54d437aa2",
       checksumRequired: true,
     },
+    {
+      descriptor:
+        "wsh(and_v(r:after(1),pkh(03cdabb7f2dce7bfbd8a0b9570c6fd1e712e5d64045e9d6b517b3d5072251dc204)))",
+      script: "0020823bcb22035958d32afe8ec04357535a3e73da3ed9cd90a4251970f9995077a5",
+      checksumRequired: false,
+    },
   ],
   invalid: [
     {
