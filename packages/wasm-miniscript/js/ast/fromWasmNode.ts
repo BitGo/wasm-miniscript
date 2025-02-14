@@ -1,4 +1,4 @@
-import { DescriptorNode, MiniscriptNode } from "./formatNode";
+import { DescriptorNode, MiniscriptNode, TapTreeNode } from "./formatNode";
 import { Descriptor, Miniscript } from "../index";
 
 function getSingleEntry(v: unknown): [string, unknown] {
@@ -22,7 +22,7 @@ function wrap(type: string, value: unknown): MiniscriptNode {
   return { [`${type}:${name}`]: inner } as MiniscriptNode;
 }
 
-type Node = DescriptorNode | MiniscriptNode | string | number;
+type Node = DescriptorNode | MiniscriptNode | TapTreeNode | string | number;
 
 function fromUnknown(v: unknown): Node | Node[] {
   if (typeof v === "number" || typeof v === "string") {
@@ -113,6 +113,12 @@ function fromUnknown(v: unknown): Node | Node[] {
         return node("multi", value);
       case "MultiA":
         return node("multi_a", value);
+
+      case "Tree":
+        if (!Array.isArray(value) || value.length !== 2) {
+          throw new Error(`Invalid Tree node: ${JSON.stringify(value)}`);
+        }
+        return [fromUnknown(value[0]), fromUnknown(value[1])] as TapTreeNode;
     }
   }
 
