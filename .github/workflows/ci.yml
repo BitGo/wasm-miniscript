@@ -25,25 +25,35 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Setup node ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: nightly
 
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "packages/wasm-miniscript"
+          cache-on-failure: true
+
+      - name: Setup node ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
       - name: Install wasm-pack
         run: |
           rustup component add rustfmt
-          cargo install wasm-pack
+          cargo install wasm-pack --version 0.13.1
+          cargo install wasm-opt --version 0.116.1
 
       - name: Build Info
         run: |
           echo "node $(node --version)"
           echo "npm $(npm --version)"
+          echo "rustc $(rustc --version)"
+          echo "wasm-pack $(wasm-pack --version)"
+          echo "wasm-opt $(wasm-opt --version)"
           git --version
           echo "base ref $GITHUB_BASE_REF"
           echo "head ref $GITHUB_HEAD_REF"
