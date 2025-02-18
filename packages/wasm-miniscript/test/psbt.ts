@@ -5,6 +5,7 @@ import { Descriptor, Psbt } from "../js";
 
 import { getDescriptorForScriptType } from "./descriptorUtil";
 import { assertEqualPsbt, toUtxoPsbt, toWrappedPsbt, updateInputWithDescriptor } from "./psbt.util";
+import { getKey } from "@bitgo/utxo-lib/dist/src/testutil";
 
 const rootWalletKeys = new utxolib.bitgo.RootWalletKeys(utxolib.testutil.getKeyTriple("wasm"));
 
@@ -13,16 +14,6 @@ function assertEqualBuffer(a: Buffer | Uint8Array, b: Buffer | Uint8Array, messa
 }
 
 const fixtures = getPsbtFixtures(rootWalletKeys);
-
-function getWasmDescriptor(
-  scriptType: utxolib.bitgo.outputScripts.ScriptType2Of3,
-  scope: "internal" | "external",
-) {
-  return Descriptor.fromString(
-    getDescriptorForScriptType(rootWalletKeys, scriptType, scope),
-    "derivable",
-  );
-}
 
 function describeUpdateInputWithDescriptor(
   psbt: utxolib.bitgo.UtxoPsbt,
@@ -40,12 +31,21 @@ function describeUpdateInputWithDescriptor(
   const index = 0;
   const descriptor = Descriptor.fromString(descriptorStr, "derivable");
 
+  function getWrappedPsbt() {
+    return toWrappedPsbt(psbt);
+  }
+
+  function getWrappedPsbtWithDescriptorInfo(): Psbt {
+    const wrappedPsbt = getWrappedPsbt();
+    const descriptorAtDerivation = descriptor.atDerivationIndex(index);
+    wrappedPsbt.updateInputWithDescriptor(0, descriptorAtDerivation);
+    wrappedPsbt.updateOutputWithDescriptor(0, descriptorAtDerivation);
+    return wrappedPsbt;
+  }
+
   describe("Wrapped PSBT updateInputWithDescriptor", function () {
     it("should update the input with the descriptor", function () {
-      const wrappedPsbt = toWrappedPsbt(psbt);
-      const descriptorAtDerivation = descriptor.atDerivationIndex(index);
-      wrappedPsbt.updateInputWithDescriptor(0, descriptorAtDerivation);
-      wrappedPsbt.updateOutputWithDescriptor(0, descriptorAtDerivation);
+      const wrappedPsbt = getWrappedPsbtWithDescriptorInfo();
       const updatedPsbt = toUtxoPsbt(wrappedPsbt);
       assertEqualPsbt(updatedPsbt, getFixtureAtStage("unsigned").psbt);
       updatedPsbt.signAllInputsHD(rootWalletKeys.triple[0]);
@@ -84,6 +84,44 @@ function describeUpdateInputWithDescriptor(
         cloned.extractTransaction().toBuffer(),
       );
     });
+  });
+
+  describe("psbt signWithXprv", function () {
+    type KeyName = utxolib.bitgo.KeyName | "unrelated";
+    function signWithKey(keys: KeyName[], { checkFinalized = false } = {}) {
+      it(`signs the input with keys ${keys}`, function () {
+        const psbt = getWrappedPsbtWithDescriptorInfo();
+        keys.forEach((keyName) => {
+          const key = keyName === "unrelated" ? getKey(keyName) : rootWalletKeys[keyName];
+          const derivationPaths = toUtxoPsbt(psbt).data.inputs[0].bip32Derivation.map(
+            (d) => d.path,
+          );
+          assert.ok(derivationPaths.every((p) => p === derivationPaths[0]));
+          const derived = key.derivePath(derivationPaths[0]);
+          assert.deepStrictEqual(psbt.signWithXprv(key.toBase58()), {
+            // map: input index -> pubkey array
+            0: { Ecdsa: keyName === "unrelated" ? [] : [derived.publicKey.toString("hex")] },
+          });
+        });
+
+        if (checkFinalized) {
+          psbt.finalize();
+          assertEqualBuffer(
+            toUtxoPsbt(psbt).extractTransaction().toBuffer(),
+            getFixtureAtStage("fullsigned")
+              .psbt.finalizeAllInputs()
+              .extractTransaction()
+              .toBuffer(),
+          );
+        }
+      });
+    }
+
+    signWithKey(["user"]);
+    signWithKey(["backup"]);
+    signWithKey(["bitgo"]);
+    signWithKey(["unrelated"]);
+    signWithKey(["user", "bitgo"], { checkFinalized: true });
   });
 }
 
