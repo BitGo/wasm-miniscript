@@ -1,5 +1,6 @@
 use js_sys::Array;
 use miniscript::bitcoin::hashes::{hash160, ripemd160};
+use miniscript::bitcoin::psbt::{SigningKeys, SigningKeysMap};
 use miniscript::bitcoin::{PublicKey, XOnlyPublicKey};
 use miniscript::descriptor::{DescriptorType, ShInner, SortedMultiVec, TapTree, Tr, WshInner};
 use miniscript::{
@@ -255,5 +256,33 @@ impl TryIntoJsValue for DescriptorType {
     fn try_to_js_value(&self) -> Result<JsValue, JsError> {
         let str_from_enum = format!("{:?}", self);
         Ok(JsValue::from_str(&str_from_enum))
+    }
+}
+
+impl TryIntoJsValue for SigningKeys {
+    fn try_to_js_value(&self) -> Result<JsValue, JsError> {
+        match self {
+            SigningKeys::Ecdsa(v) => {
+                js_obj!("Ecdsa" => v)
+            }
+            SigningKeys::Schnorr(v) => {
+                js_obj!("Schnorr" => v)
+            }
+        }
+    }
+}
+
+impl TryIntoJsValue for SigningKeysMap {
+    fn try_to_js_value(&self) -> Result<JsValue, JsError> {
+        let obj = js_sys::Object::new();
+        for (key, value) in self.iter() {
+            js_sys::Reflect::set(
+                &obj,
+                &key.to_string().into(),
+                &value.try_to_js_value()?.into(),
+            )
+            .map_err(|_| JsError::new("Failed to set object property"))?;
+        }
+        Ok(obj.into())
     }
 }

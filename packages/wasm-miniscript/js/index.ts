@@ -8,6 +8,10 @@ export type DescriptorPkType = "derivable" | "definite" | "string";
 
 export type ScriptContext = "tap" | "segwitv0" | "legacy";
 
+export type SignPsbtResult = {
+  [inputIndex: number]: [pubkey: string][];
+};
+
 declare module "./wasm/wasm_miniscript" {
   interface WrapDescriptor {
     /** These are not the same types of nodes as in the ast module */
@@ -26,6 +30,10 @@ declare module "./wasm/wasm_miniscript" {
   namespace WrapMiniscript {
     function fromString(miniscript: string, ctx: ScriptContext): WrapMiniscript;
     function fromBitcoinScript(script: Uint8Array, ctx: ScriptContext): WrapMiniscript;
+  }
+
+  interface WrapPsbt {
+    signWithXprv(this: WrapPsbt, xprv: string): SignPsbtResult;
   }
 }
 
