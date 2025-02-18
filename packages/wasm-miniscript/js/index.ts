@@ -34,6 +34,7 @@ declare module "./wasm/wasm_miniscript" {
 
   interface WrapPsbt {
     signWithXprv(this: WrapPsbt, xprv: string): SignPsbtResult;
+    signWithPrv(this: WrapPsbt, prv: Buffer): SignPsbtResult;
   }
 }
 

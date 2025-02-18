@@ -1,6 +1,6 @@
 import * as utxolib from "@bitgo/utxo-lib";
 import * as assert from "node:assert";
-import { getPsbtFixtures, PsbtStage } from "./psbtFixtures";
+import { getPsbtFixtures, PsbtStage } from "./psbtFixedScriptCompatFixtures";
 import { Descriptor, Psbt } from "../js";
 
 import { getDescriptorForScriptType } from "./descriptorUtil";

@@ -1,8 +1,7 @@
+import * as assert from "node:assert";
 import * as fs from "fs/promises";
 import * as utxolib from "@bitgo/utxo-lib";
-import { Descriptor } from "../js";
-import * as assert from "node:assert";
-import { DescriptorNode, MiniscriptNode } from "../js/ast";
+import { DescriptorNode, MiniscriptNode, formatNode } from "../js/ast";
 
 async function assertEqualJSON(path: string, value: unknown): Promise<void> {
   try {
@@ -29,16 +28,13 @@ export async function assertEqualFixture(
 }
 
 /** Expand a template with the given root wallet keys and chain code */
-function expand(template: string, rootWalletKeys: utxolib.bitgo.RootWalletKeys, chainCode: number) {
-  return template.replace(/\$([0-9])/g, (_, i) => {
-    const keyIndex = parseInt(i, 10);
-    if (keyIndex !== 0 && keyIndex !== 1 && keyIndex !== 2) {
-      throw new Error("Invalid key index");
-    }
-    const xpub = rootWalletKeys.triple[keyIndex].neutered().toBase58();
-    const prefix = rootWalletKeys.derivationPrefixes[keyIndex];
-    return xpub + "/" + prefix + "/" + chainCode + "/*";
-  });
+function expand(rootWalletKeys: utxolib.bitgo.RootWalletKeys, keyIndex: number, chainCode: number) {
+  if (keyIndex !== 0 && keyIndex !== 1 && keyIndex !== 2) {
+    throw new Error("Invalid key index");
+  }
+  const xpub = rootWalletKeys.triple[keyIndex].neutered().toBase58();
+  const prefix = rootWalletKeys.derivationPrefixes[keyIndex];
+  return xpub + "/" + prefix + "/" + chainCode + "/*";
 }
 
 /**
@@ -55,13 +51,16 @@ export function getDescriptorForScriptType(
     scope === "external"
       ? utxolib.bitgo.getExternalChainCode(scriptType)
       : utxolib.bitgo.getInternalChainCode(scriptType);
+  const multi: MiniscriptNode = {
+    multi: [2, ...rootWalletKeys.triple.map((_, i) => expand(rootWalletKeys, i, chain))],
+  };
   switch (scriptType) {
     case "p2sh":
-      return expand("sh(multi(2,$0,$1,$2))", rootWalletKeys, chain);
+      return formatNode({ sh: multi });
     case "p2shP2wsh":
-      return expand("sh(wsh(multi(2,$0,$1,$2)))", rootWalletKeys, chain);
+      return formatNode({ sh: { wsh: multi } });
     case "p2wsh":
-      return expand("wsh(multi(2,$0,$1,$2))", rootWalletKeys, chain);
+      return formatNode({ wsh: multi });
     default:
       throw new Error(`Unsupported script type ${scriptType}`);
   }

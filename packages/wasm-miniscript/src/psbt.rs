@@ -4,6 +4,8 @@ use crate::WrapDescriptor;
 use miniscript::bitcoin::secp256k1::Secp256k1;
 use miniscript::bitcoin::Psbt;
 use miniscript::psbt::PsbtExt;
+use miniscript::ToPublicKey;
+use std::collections::HashMap;
 use std::str::FromStr;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsError, JsValue};
@@ -71,6 +73,29 @@ impl WrapPsbt {
             .map_err(|_| JsError::new("Invalid xprv"))?;
         self.0
             .sign(&key, &Secp256k1::new())
+            .map_err(|(_, errors)| JsError::new(&format!("{} errors: {:?}", errors.len(), errors)))
+            .and_then(|r| r.try_to_js_value())
+    }
+
+    #[wasm_bindgen(js_name = signWithPrv)]
+    pub fn sign_with_prv(&mut self, prv: Vec<u8>) -> Result<JsValue, JsError> {
+        let privkey = miniscript::bitcoin::PrivateKey::from_slice(
+            &prv,
+            miniscript::bitcoin::network::Network::Bitcoin,
+        )
+        .map_err(|_| JsError::new("Invalid private key"))?;
+        let mut map: HashMap<miniscript::bitcoin::PublicKey, miniscript::bitcoin::PrivateKey> =
+            std::collections::HashMap::new();
+        map.insert(privkey.public_key(&Secp256k1::new()), privkey);
+        map.insert(
+            privkey
+                .public_key(&Secp256k1::new())
+                .to_x_only_pubkey()
+                .to_public_key(),
+            privkey,
+        );
+        self.0
+            .sign(&map, &Secp256k1::new())
             .map_err(|(_, errors)| JsError::new(&format!("{} errors: {:?}", errors.len(), errors)))
             .and_then(|r| r.try_to_js_value())
     }
