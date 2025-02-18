@@ -29,9 +29,22 @@ jobs:
         with:
           toolchain: nightly
 
-      - name: Install wasm-pack
+      - name: Install wasm tools
         run: |
-          cargo install wasm-pack
+          rustup component add rustfmt
+          cargo install wasm-pack --version 0.13.1
+          cargo install wasm-opt --version 0.116.1
+
+      - name: Build Info
+        run: |
+          echo "node $(node --version)"
+          echo "npm $(npm --version)"
+          echo "rustc $(rustc --version)"
+          echo "wasm-pack $(wasm-pack --version)"
+          echo "wasm-opt $(wasm-opt --version)"
+          git --version
+          echo "base ref $GITHUB_BASE_REF"
+          echo "head ref $GITHUB_HEAD_REF"
 
       - name: Build Info
         run: |
