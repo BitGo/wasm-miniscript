@@ -1,10 +1,12 @@
 use crate::descriptor::WrapDescriptorEnum;
+use crate::try_into_js_value::TryIntoJsValue;
 use crate::WrapDescriptor;
 use miniscript::bitcoin::secp256k1::Secp256k1;
 use miniscript::bitcoin::Psbt;
 use miniscript::psbt::PsbtExt;
+use std::str::FromStr;
 use wasm_bindgen::prelude::wasm_bindgen;
-use wasm_bindgen::JsError;
+use wasm_bindgen::{JsError, JsValue};
 
 #[wasm_bindgen]
 pub struct WrapPsbt(Psbt);
@@ -61,6 +63,16 @@ impl WrapPsbt {
                 "Cannot update output with a string descriptor",
             )),
         }
+    }
+
+    #[wasm_bindgen(js_name = signWithXprv)]
+    pub fn sign_with_xprv(&mut self, xprv: String) -> Result<JsValue, JsError> {
+        let key = miniscript::bitcoin::bip32::Xpriv::from_str(&xprv)
+            .map_err(|_| JsError::new("Invalid xprv"))?;
+        self.0
+            .sign(&key, &Secp256k1::new())
+            .map_err(|(_, errors)| JsError::new(&format!("{} errors: {:?}", errors.len(), errors)))
+            .and_then(|r| r.try_to_js_value())
     }
 
     #[wasm_bindgen(js_name = finalize)]
