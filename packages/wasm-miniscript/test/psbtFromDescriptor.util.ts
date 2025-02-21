@@ -156,6 +156,10 @@ type MockOutput = {
   external?: boolean;
 };
 
+function deriveIfWildcard(descriptor: Descriptor, index: number): Descriptor {
+  return descriptor.hasWildcard() ? descriptor.atDerivationIndex(index) : descriptor;
+}
+
 export function mockPsbt(
   inputs: MockInput[],
   outputs: MockOutput[],
@@ -164,10 +168,10 @@ export function mockPsbt(
   return createPsbt(
     { ...params, network: params.network ?? utxolib.networks.bitcoin },
     inputs.map((i) =>
-      mockDerivedDescriptorWalletOutput(i.descriptor.atDerivationIndex(i.index), i),
+      mockDerivedDescriptorWalletOutput(deriveIfWildcard(i.descriptor, i.index), i),
     ),
     outputs.map((o) => {
-      const derivedDescriptor = o.descriptor.atDerivationIndex(o.index);
+      const derivedDescriptor = deriveIfWildcard(o.descriptor, o.index);
       return {
         script: createScriptPubKeyFromDescriptor(derivedDescriptor),
         value: o.value,
