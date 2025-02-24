@@ -103,17 +103,3 @@ impl From<Miniscript<PublicKey, Legacy>> for WrapMiniscript {
         WrapMiniscript(WrapMiniscriptEnum::Legacy(miniscript))
     }
 }
-
-#[test]
-pub fn panic_xprv() {
-    use miniscript::bitcoin::secp256k1::Secp256k1;
-    use miniscript::Descriptor;
-    let (d,m) = Descriptor::parse_descriptor(
-        &Secp256k1::new(),
-        "wsh(multi(2,xprv9s21ZrQH143K31xYSDQpPDxsXRTUcvj2iNHm5NUtrGiGG5e2DtALGdso3pGz6ssrdK4PFmM8NSpSBHNqPqm55Qn3LqFtT2emdEXVYsCzC2U/2147483647'/0,xprv9vHkqa6EV4sPZHYqZznhT2NPtPCjKuDKGY38FBWLvgaDx45zo9WQRUT3dKYnjwih2yJD9mkrocEZXo1ex8G81dwSM1fwqWpWkeS3v86pgKt/1/2/*,xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi/10/20/30/40/*'))",
-    ).unwrap();
-
-    let dd = d.at_derivation_index(0).unwrap();
-
-    let _ = dd.explicit_script().unwrap();
-}

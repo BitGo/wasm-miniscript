@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { BIP32Interface } from "@bitgo/utxo-lib";
+import { BIP32Interface, ECPair, ECPairInterface } from "@bitgo/utxo-lib";
 import { getKey } from "@bitgo/utxo-lib/dist/src/testutil";
 
 import { DescriptorNode, formatNode } from "../js/ast";
@@ -8,11 +8,20 @@ import { Descriptor } from "../js";
 import { toWrappedPsbt } from "./psbt.util";
 
 function toKeyWithPath(k: BIP32Interface, path = "*"): string {
-  return k.toBase58() + "/" + path;
+  return k.neutered().toBase58() + "/" + path;
 }
 
 function toKeyPlain(k: Buffer): string {
   return k.toString("hex");
+}
+
+function toECPair(k: BIP32Interface): ECPairInterface {
+  assert(k.privateKey);
+  return ECPair.fromPrivateKey(k.privateKey);
+}
+
+function toKeyPlainXOnly(k: Buffer): string {
+  return k.subarray(1).toString("hex");
 }
 
 const external = getKey("external");
@@ -20,28 +29,37 @@ const a = getKey("a");
 const b = getKey("b");
 const c = getKey("c");
 const keys = { external, a, b, c };
-function getKeyName(bipKey: BIP32Interface) {
-  return Object.keys(keys).find(
-    (k) => keys[k as keyof typeof keys] === bipKey,
-  ) as keyof typeof keys;
+function getKeyName(k: BIP32Interface | ECPairInterface) {
+  const objKeys = Object.keys(keys) as (keyof typeof keys)[];
+  const keyName = objKeys.find(
+    (key) => keys[key] === k || toECPair(keys[key]).publicKey.equals(k.publicKey),
+  );
 }
+
+type SigningKey = BIP32Interface | ECPairInterface;
 
 function describeSignDescriptor(
   name: string,
-  descriptor: DescriptorNode,
-  signSeqs: BIP32Interface[][],
+  descriptor: Descriptor,
+  {
+    signBip32 = [],
+    signECPair = [],
+  }: {
+    signBip32?: BIP32Interface[][];
+    signECPair?: ECPairInterface[][];
+  },
 ) {
   describe(`psbt with descriptor ${name}`, function () {
-    const isTaproot = Object.keys(descriptor)[0] === "tr";
+    const isTaproot = Object.keys(descriptor.node())[0] === "Tr";
     const psbt = mockPsbtDefault({
-      descriptorSelf: Descriptor.fromString(formatNode(descriptor), "derivable"),
+      descriptorSelf: descriptor,
       descriptorOther: Descriptor.fromString(
         formatNode({ wpkh: toKeyWithPath(external) }),
         "derivable",
       ),
     });
 
-    function getSigResult(keys: BIP32Interface[]) {
+    function getSigResult(keys: (BIP32Interface | ECPairInterface)[]) {
       return {
         [isTaproot ? "Schnorr" : "Ecdsa"]: keys.map((key) =>
           key.publicKey.subarray(isTaproot ? 1 : 0).toString("hex"),
@@ -49,7 +67,7 @@ function describeSignDescriptor(
       };
     }
 
-    signSeqs.forEach((signSeq, i) => {
+    signBip32.forEach((signSeq, i) => {
       it(`should sign ${signSeq.map((k) => getKeyName(k))} xprv`, function () {
         const wrappedPsbt = toWrappedPsbt(psbt);
         signSeq.forEach((key) => {
@@ -62,52 +80,83 @@ function describeSignDescriptor(
       });
 
       it(`should sign ${signSeq.map((k) => getKeyName(k))} prv buffer`, function () {
-        if (isTaproot) {
-          // signing with non-bip32 taproot keys is not supported apparently
-          this.skip();
-        }
         const wrappedPsbt = toWrappedPsbt(psbt);
         signSeq.forEach((key) => {
           assert.deepStrictEqual(wrappedPsbt.signWithPrv(key.derive(0).privateKey), {
-            0: getSigResult([key.derive(0)]),
+            // NOTE: signing with a plain derived key does not work for taproot
+            // see SingleKeySigner implementation in psbt.rs for details
+            0: getSigResult(isTaproot ? [] : [key.derive(0)]),
             1: getSigResult([]),
           });
         });
       });
     });
+
+    signECPair.forEach((signSeq, i) => {
+      it(`should sign ${signSeq.map((k) => getKeyName(k))} ec pair`, function () {
+        const wrappedPsbt = toWrappedPsbt(psbt);
+        signSeq.forEach((key) => {
+          assert(key.privateKey);
+          assert.deepStrictEqual(wrappedPsbt.signWithPrv(key.privateKey), {
+            0: getSigResult([key]),
+            1: getSigResult([key]),
+          });
+        });
+        wrappedPsbt.finalize();
+      });
+    });
   });
+}
+
+function fromNodes(node: DescriptorNode, type: "definite" | "derivable") {
+  return Descriptor.fromString(formatNode(node), type);
 }
 
 describeSignDescriptor(
   "Wsh2Of3",
+  fromNodes(
+    {
+      wsh: { multi: [2, toKeyWithPath(a), toKeyWithPath(b), toKeyWithPath(c)] },
+    },
+    "derivable",
+  ),
   {
-    wsh: { multi: [2, toKeyWithPath(a), toKeyWithPath(b), toKeyWithPath(c)] },
+    signBip32: [
+      [a, b],
+      [b, a],
+    ],
   },
-  [
-    [a, b],
-    [b, a],
-  ],
 );
 
 describeSignDescriptor(
   "Tr1Of3",
-  {
-    tr: [toKeyWithPath(a), [{ pk: toKeyWithPath(b) }, { pk: toKeyWithPath(c) }]],
-  },
-  [[a], [b], [c]],
+  fromNodes(
+    {
+      tr: [toKeyWithPath(a), [{ pk: toKeyWithPath(b) }, { pk: toKeyWithPath(c) }]],
+    },
+    "derivable",
+  ),
+  { signBip32: [[a], [b], [c]] },
 );
 
-// while we cannot sign with a derived plain xonly key, we can sign with an xprv
 describeSignDescriptor(
   "TrWithExternalPlain",
-  {
-    tr: [
-      toKeyPlain(external.publicKey),
-      [
-        { pk: toKeyPlain(external.publicKey) },
-        { or_b: [{ pk: toKeyPlain(external.publicKey) }, { "s:pk": toKeyWithPath(a) }] },
+  fromNodes(
+    {
+      tr: [
+        toKeyPlainXOnly(external.publicKey),
+        [
+          { pk: toKeyPlainXOnly(external.publicKey) },
+          {
+            or_b: [
+              { pk: toKeyPlainXOnly(external.publicKey) },
+              { "s:pk": toKeyPlainXOnly(a.publicKey) },
+            ],
+          },
+        ],
       ],
-    ],
-  },
-  [[a]],
+    },
+    "definite",
+  ),
+  { signECPair: [[toECPair(a)]] },
 );
