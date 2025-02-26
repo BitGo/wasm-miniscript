@@ -56,6 +56,13 @@ function assertIsErrorUnknownWrapper(error: unknown, wrapper: string) {
 }
 
 describe("Descriptor fixtures", function () {
+  it("throws proper error", function () {
+    assert.throws(
+      () => Descriptor.fromString("lol", "derivable"),
+      (err) => err instanceof Error,
+    );
+  });
+
   fixtures.valid.forEach((fixture, i) => {
     describe("fixture " + i, function () {
       const isOpDropFixture = i === 59;

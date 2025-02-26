@@ -1,4 +1,5 @@
 mod descriptor;
+mod error;
 mod miniscript;
 mod psbt;
 mod try_into_js_value;
