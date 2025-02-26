@@ -84,6 +84,10 @@ describe("Descriptor fixtures", function () {
         // return;
       }
 
+      it("should detect descriptor type", function () {
+        Descriptor.fromStringDetectType(fixture.descriptor);
+      });
+
       it("should round-trip (pkType string)", function () {
         let descriptorString = Descriptor.fromString(fixture.descriptor, "string").toString();
         if (fixture.checksumRequired === false) {

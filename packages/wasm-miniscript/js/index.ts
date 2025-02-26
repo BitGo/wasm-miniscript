@@ -20,6 +20,7 @@ declare module "./wasm/wasm_miniscript" {
 
   namespace WrapDescriptor {
     function fromString(descriptor: string, pkType: DescriptorPkType): WrapDescriptor;
+    function fromStringDetectType(descriptor: string): WrapDescriptor;
   }
 
   interface WrapMiniscript {
