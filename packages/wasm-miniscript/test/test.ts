@@ -56,6 +56,13 @@ function assertIsErrorUnknownWrapper(error: unknown, wrapper: string) {
 }
 
 describe("Descriptor fixtures", function () {
+  it("throws proper error", function () {
+    assert.throws(
+      () => Descriptor.fromString("lol", "derivable"),
+      (err) => err instanceof Error,
+    );
+  });
+
   fixtures.valid.forEach((fixture, i) => {
     describe("fixture " + i, function () {
       const isOpDropFixture = i === 59;
@@ -76,6 +83,10 @@ describe("Descriptor fixtures", function () {
       if (isOpDropFixture) {
         return;
       }
+
+      it("should detect descriptor type", function () {
+        Descriptor.fromStringDetectType(fixture.descriptor);
+      });
 
       it("should round-trip (pkType string)", function () {
         let descriptorString = Descriptor.fromString(fixture.descriptor, "string").toString();
