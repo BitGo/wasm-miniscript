@@ -4,7 +4,7 @@ import { getKey } from "@bitgo/utxo-lib/dist/src/testutil";
 
 import { DescriptorNode, formatNode } from "../js/ast";
 import { mockPsbtDefault } from "./psbtFromDescriptor.util";
-import { Descriptor } from "../js";
+import { Descriptor, SignPsbtInputResult, SignPsbtResult } from "../js";
 import { toWrappedPsbt } from "./psbt.util";
 
 function toKeyWithPath(k: BIP32Interface, path = "*"): string {
@@ -59,12 +59,9 @@ function describeSignDescriptor(
       ),
     });
 
-    function getSigResult(keys: (BIP32Interface | ECPairInterface)[]) {
-      return {
-        [isTaproot ? "Schnorr" : "Ecdsa"]: keys.map((key) =>
-          key.publicKey.subarray(isTaproot ? 1 : 0).toString("hex"),
-        ),
-      };
+    function getSigResult(keys: (BIP32Interface | ECPairInterface)[]): SignPsbtInputResult {
+      const pks = keys.map((key) => key.publicKey.subarray(isTaproot ? 1 : 0).toString("hex"));
+      return isTaproot ? { Schnorr: pks } : { Ecdsa: pks };
     }
 
     signBip32.forEach((signSeq, i) => {
@@ -100,7 +97,7 @@ function describeSignDescriptor(
           assert.deepStrictEqual(wrappedPsbt.signWithPrv(key.privateKey), {
             0: getSigResult([key]),
             1: getSigResult([key]),
-          });
+          } satisfies SignPsbtResult);
         });
         wrappedPsbt.finalize();
       });

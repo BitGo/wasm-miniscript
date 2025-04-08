@@ -8,8 +8,10 @@ export type DescriptorPkType = "derivable" | "definite" | "string";
 
 export type ScriptContext = "tap" | "segwitv0" | "legacy";
 
+export type SignPsbtInputResult = { Ecdsa: string[] } | { Schnorr: string[] };
+
 export type SignPsbtResult = {
-  [inputIndex: number]: [pubkey: string][];
+  [inputIndex: number]: SignPsbtInputResult;
 };
 
 declare module "./wasm/wasm_miniscript" {
