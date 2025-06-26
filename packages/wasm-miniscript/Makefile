@@ -43,4 +43,4 @@ dist/node/js/wasm/:
 
 .PHONY: dist/browser/js/wasm/
 dist/browser/js/wasm/:
-	$(call BUILD,$@,browser)
+	$(call BUILD,$@,bundler)
