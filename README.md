@@ -7,7 +7,7 @@ This repo is the home of BitGo's WASM libraries.
 
 - [Rust](https://www.rust-lang.org/) nightly
 - [wasm-pack](https://rustwasm.github.io/wasm-pack/) (install with `cargo install wasm-pack`)
-- [NodeJS](https://nodejs.org/en/)
+- [Node.js](https://nodejs.org/en/)
 
 # Packages
 
