@@ -2,6 +2,7 @@ use crate::descriptor::WrapDescriptorEnum;
 use crate::error::WasmMiniscriptError;
 use crate::try_into_js_value::TryIntoJsValue;
 use crate::WrapDescriptor;
+use miniscript::bitcoin::bip32::Fingerprint;
 use miniscript::bitcoin::secp256k1::{Context, Secp256k1, Signing};
 use miniscript::bitcoin::{bip32, psbt, secp256k1, PublicKey, XOnlyPublicKey};
 use miniscript::bitcoin::{PrivateKey, Psbt};
@@ -9,7 +10,6 @@ use miniscript::descriptor::{SinglePub, SinglePubKey};
 use miniscript::psbt::PsbtExt;
 use miniscript::{DescriptorPublicKey, ToPublicKey};
 use std::str::FromStr;
-use miniscript::bitcoin::bip32::Fingerprint;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::{JsError, JsValue};
 
@@ -24,7 +24,7 @@ struct SingleKeySigner {
 
 impl SingleKeySigner {
     fn fingerprint(key: SinglePubKey) -> Fingerprint {
-        DescriptorPublicKey::Single(SinglePub { origin: None, key, }).master_fingerprint()
+        DescriptorPublicKey::Single(SinglePub { origin: None, key }).master_fingerprint()
     }
 
     fn from_privkey<C: Signing>(privkey: PrivateKey, secp: &Secp256k1<C>) -> SingleKeySigner {
@@ -168,6 +168,7 @@ impl WrapPsbt {
 #[cfg(test)]
 mod tests {
     use crate::psbt::SingleKeySigner;
+    use base64::prelude::*;
     use miniscript::bitcoin::bip32::{DerivationPath, Fingerprint, KeySource};
     use miniscript::bitcoin::psbt::{SigningKeys, SigningKeysMap};
     use miniscript::bitcoin::secp256k1::Secp256k1;
@@ -175,7 +176,6 @@ mod tests {
     use miniscript::psbt::PsbtExt;
     use miniscript::{DefiniteDescriptorKey, Descriptor, DescriptorPublicKey, ToPublicKey};
     use std::str::FromStr;
-    use base64::prelude::*;
 
     fn psbt_from_base64(s: &str) -> Psbt {
         let psbt = BASE64_STANDARD.decode(s.as_bytes()).unwrap();
@@ -204,10 +204,7 @@ mod tests {
                     DerivationPath::from(vec![]),
                 );
                 assert_eq!(key_source.1, key_source_ref);
-                assert_eq!(
-                    sks.fingerprint,
-                    key_source.1.0,
-                );
+                assert_eq!(sks.fingerprint, key_source.1 .0,);
             });
         let mut expected_keys = SigningKeysMap::new();
         expected_keys.insert(0, SigningKeys::Schnorr(vec![pk]));
@@ -221,6 +218,7 @@ mod tests {
         let desc = Descriptor::<DescriptorPublicKey>::from_str(d).unwrap();
         let psbt = "cHNidP8BAKYCAAAAAgEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAAD9////AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAP3///8CgBoGAAAAAAAWABRTtvjcap+5t7odMosMnHl97YJClYAaBgAAAAAAIlEgBBlsh6bt3RStSy0egEjFHML8bVhqFYO8knG5OLcA/zcAAAAAAAEBK0BCDwAAAAAAIlEgBBlsh6bt3RStSy0egEjFHML8bVhqFYO8knG5OLcA/zcAAQErQEIPAAAAAAAiUSDFpFC16pT0pXIHKzV7teFiXul3DtlyYj9DdCpF1CHVQAAAAA==";
         let mut psbt = psbt_from_base64(psbt);
-        psbt.update_input_with_descriptor(0, &desc.at_derivation_index(0).unwrap()).unwrap();
+        psbt.update_input_with_descriptor(0, &desc.at_derivation_index(0).unwrap())
+            .unwrap();
     }
 }
