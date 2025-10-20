@@ -1,0 +1,75 @@
+name: Publish @wasm-miniscript
+on:
+  push:
+    branches:
+      - master
+      - beta
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  publish:
+    name: Publish Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: nightly
+
+      - name: Install wasm tools
+        run: |
+          rustup component add rustfmt
+          cargo install wasm-pack --version 0.13.1
+          cargo install wasm-opt --version 0.116.1
+
+      - name: Build Info
+        run: |
+          echo "node $(node --version)"
+          echo "npm $(npm --version)"
+          echo "rustc $(rustc --version)"
+          echo "wasm-pack $(wasm-pack --version)"
+          echo "wasm-opt $(wasm-opt --version)"
+          git --version
+          echo "base ref $GITHUB_BASE_REF"
+          echo "head ref $GITHUB_HEAD_REF"
+
+      - name: Build Info
+        run: |
+          echo "node $(node --version)"
+          echo "npm $(npm --version)"
+          echo "rust $(rustup --version)"
+          git --version
+
+      - name: Configure NPM
+        run: |
+          echo "workspaces-update = false" >> .npmrc
+          echo "@bitgo:registry=https://registry.npmjs.org" >> .npmrc
+          echo "//registry.npmjs.org/:always-auth=true" >> .npmrc
+
+      - name: Install Packages
+        run: npm ci --workspaces --include-workspace-root
+
+      - name: build packages
+        run: npm --workspaces run build
+
+      - name: Unit Test
+        run: npm --workspaces test
+
+      - name: Release
+        run: npx multi-semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

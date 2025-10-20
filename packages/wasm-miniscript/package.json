@@ -1,0 +1,49 @@
+{
+  "name": "@bitgo/wasm-miniscript",
+  "description": "WebAssembly wrapper for rust-miniscript (beta)",
+  "version": "0.0.0-semantic-release-managed",
+  "lint-staged": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BitGo/wasm-miniscript.git"
+  },
+  "files": [
+    "dist/*/js/wasm/wasm_miniscript.d.ts",
+    "dist/*/js/wasm/wasm_miniscript.js",
+    "dist/*/js/wasm/wasm_miniscript_bg.js",
+    "dist/*/js/wasm/wasm_miniscript_bg.wasm",
+    "dist/*/js/wasm/wasm_miniscript_bg.wasm.d.ts",
+    "dist/*/js/ast/*",
+    "dist/*/js/index.*"
+  ],
+  "main": "dist/node/js/index.js",
+  "types": "dist/node/js/index.d.ts",
+  "sideEffects": [
+    "./dist/node/js/wasm/wasm_miniscript.js",
+    "./dist/browser/js/wasm/wasm_miniscript.js"
+  ],
+  "browser": {
+    "./dist/node/js/index.js": "./dist/browser/js/index.js"
+  },
+  "scripts": {
+    "test": "mocha --recursive test",
+    "build:wasm": "make js/wasm/ && make dist/node/js/wasm/ && make dist/browser/js/wasm/",
+    "build:ts-browser": "tsc --noEmit false --module es2020 --target es2020 --outDir dist/browser",
+    "build:ts-node": "tsc --noEmit false --outDir dist/node",
+    "build:ts": "npm run build:ts-browser && npm run build:ts-node",
+    "build": "npm run build:wasm && npm run build:ts",
+    "check-fmt": "prettier --check . && cargo fmt -- --check"
+  },
+  "devDependencies": {
+    "@bitgo/utxo-lib": "^10.1.0",
+    "@types/mocha": "^10.0.7",
+    "@types/node": "^20.14.10",
+    "mocha": "^10.6.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}
