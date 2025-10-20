@@ -6,7 +6,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/BitGo/wasm-miniscript.git"
+    "url": "git+https://github.com/BitGo/BitGoWASM.git"
   },
   "scripts": {
     "check-fmt": "npm run --workspaces check-fmt"

@@ -1,11 +1,7 @@
-# wasm-miniscript
+# BitGoWASM
 
-This is a wrapper around the [rust-miniscript](https://github.com/rust-bitcoin/rust-miniscript) crate that is compiled
-to WebAssembly. It allows you to use Miniscript in NodeJS and in the browser.
+This repo is the home of BitGo's WASM libraries.
 
-# WebUI playground
-
-Go to https://bitgo.github.io/wasm-miniscript to see a live demo of the wasm-miniscript library in action.
 
 # Dependencies
 
@@ -15,17 +11,17 @@ Go to https://bitgo.github.io/wasm-miniscript to see a live demo of the wasm-min
 
 # Packages
 
-## packages/wasm-miniscript
 
-This contains the core library that is compiled to WebAssembly.
-It is a wrapper around the `rust-miniscript` crate.
+## wasm-utxo
 
-###  Building
+This is a wrapper around the
+[rust-bitcoin](https://github.com/rust-bitcoin/rust-miniscript) and
+[rust-miniscript](https://github.com/rust-bitcoin/rust-miniscript) crates that is
+compiled to WebAssembly.
 
-If your system has problems with `wasm-pack` (Mac M1), you can use the `Container.mk` Makefile to build the wasm files:
+### wasm-utxo-web
 
-```bash
-cd packages/wasm-miniscript
-make -f Container.mk build-image
-make -f Container.mk build-wasm
-```
+A live playground for the wasm-utxo crate.
+
+Go to https://bitgo.github.io/wasm-utxo to see a live demo of the wasm-utxo library in action. *WIP*
+

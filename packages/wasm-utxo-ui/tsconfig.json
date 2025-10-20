@@ -19,7 +19,7 @@
   "exclude": ["node_modules"],
   "references": [
     {
-      "path": "../wasm-miniscript"
+      "path": "../wasm-utxo"
     }
   ]
 }

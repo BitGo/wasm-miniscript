@@ -1,4 +1,4 @@
-name: Publish @wasm-miniscript
+name: Publish @bitgo/wasm-utxo
 on:
   push:
     branches:
