@@ -1,26 +1,26 @@
 {
-  "name": "@bitgo/wasm-miniscript",
-  "description": "WebAssembly wrapper for rust-miniscript (beta)",
+  "name": "@bitgo/wasm-utxo",
+  "description": "WebAssembly wrapper for rust-bitcoin (beta)",
   "version": "0.0.0-semantic-release-managed",
   "lint-staged": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/BitGo/wasm-miniscript.git"
+    "url": "git+https://github.com/BitGo/BitGoWASM"
   },
   "files": [
-    "dist/*/js/wasm/wasm_miniscript.d.ts",
-    "dist/*/js/wasm/wasm_miniscript.js",
-    "dist/*/js/wasm/wasm_miniscript_bg.js",
-    "dist/*/js/wasm/wasm_miniscript_bg.wasm",
-    "dist/*/js/wasm/wasm_miniscript_bg.wasm.d.ts",
+    "dist/*/js/wasm/wasm_utxo.d.ts",
+    "dist/*/js/wasm/wasm_utxo.js",
+    "dist/*/js/wasm/wasm_utxo_bg.js",
+    "dist/*/js/wasm/wasm_utxo_bg.wasm",
+    "dist/*/js/wasm/wasm_utxo_bg.wasm.d.ts",
     "dist/*/js/ast/*",
     "dist/*/js/index.*"
   ],
   "main": "dist/node/js/index.js",
   "types": "dist/node/js/index.d.ts",
   "sideEffects": [
-    "./dist/node/js/wasm/wasm_miniscript.js",
-    "./dist/browser/js/wasm/wasm_miniscript.js"
+    "./dist/node/js/wasm/wasm_utxo.js",
+    "./dist/browser/js/wasm/wasm_utxo.js"
   ],
   "browser": {
     "./dist/node/js/index.js": "./dist/browser/js/index.js"

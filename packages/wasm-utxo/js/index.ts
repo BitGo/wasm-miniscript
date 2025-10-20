@@ -1,4 +1,4 @@
-import * as wasm from "./wasm/wasm_miniscript";
+import * as wasm from "./wasm/wasm_utxo";
 
 // we need to access the wasm module here, otherwise webpack gets all weird
 // and forgets to include it in the bundle
@@ -12,7 +12,7 @@ export type SignPsbtResult = {
   [inputIndex: number]: [pubkey: string][];
 };
 
-declare module "./wasm/wasm_miniscript" {
+declare module "./wasm/wasm_utxo" {
   interface WrapDescriptor {
     /** These are not the same types of nodes as in the ast module */
     node(): unknown;
@@ -39,8 +39,8 @@ declare module "./wasm/wasm_miniscript" {
   }
 }
 
-export { WrapDescriptor as Descriptor } from "./wasm/wasm_miniscript";
-export { WrapMiniscript as Miniscript } from "./wasm/wasm_miniscript";
-export { WrapPsbt as Psbt } from "./wasm/wasm_miniscript";
+export { WrapDescriptor as Descriptor } from "./wasm/wasm_utxo";
+export { WrapMiniscript as Miniscript } from "./wasm/wasm_utxo";
+export { WrapPsbt as Psbt } from "./wasm/wasm_utxo";
 
 export * as ast from "./ast";

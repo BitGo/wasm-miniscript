@@ -1,5 +1,5 @@
 import * as t from "io-ts";
-import { Descriptor, Miniscript } from "@bitgo/wasm-miniscript";
+import { Descriptor, Miniscript } from "@bitgo/wasm-utxo";
 import { fromHex, toHex } from "./hex";
 import { ScriptContext } from "./codec";
 

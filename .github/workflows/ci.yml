@@ -1,4 +1,4 @@
-name: wasm-miniscript
+name: Build and Test wasm-utxo
 
 on:
   push:
@@ -33,7 +33,7 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: "packages/wasm-miniscript"
+          workspaces: "packages/wasm-utxo"
           cache-on-failure: true
 
       - name: Setup node ${{ matrix.node-version }}

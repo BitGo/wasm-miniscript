@@ -1,5 +1,5 @@
 import * as utxolib from "@bitgo/utxo-lib";
-import { Descriptor, Miniscript, ScriptContext } from "@bitgo/wasm-miniscript";
+import { Descriptor, Miniscript, ScriptContext } from "@bitgo/wasm-utxo";
 
 import "./style.css";
 
