@@ -1,0 +1,43 @@
+{
+  "descriptor": "tr(50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0,and_v(v:pk(7b6a08504c46336f985a5787a5423eb18c10b149fef29cd3316ad86f565cd2b9),older(200)))#t9nj25pu",
+  "wasmNode": {
+    "Tr": [
+      {
+        "Single": "50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0"
+      },
+      {
+        "AndV": [
+          {
+            "Verify": {
+              "Check": {
+                "PkK": {
+                  "Single": "7b6a08504c46336f985a5787a5423eb18c10b149fef29cd3316ad86f565cd2b9"
+                }
+              }
+            }
+          },
+          {
+            "Older": {
+              "relLockTime": 200
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ast": {
+    "tr": [
+      "50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0",
+      {
+        "and_v": [
+          {
+            "v:pk": "7b6a08504c46336f985a5787a5423eb18c10b149fef29cd3316ad86f565cd2b9"
+          },
+          {
+            "older": 200
+          }
+        ]
+      }
+    ]
+  }
+}
