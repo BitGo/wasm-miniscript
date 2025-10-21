@@ -149,8 +149,8 @@ checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
 name = "miniscript"
-version = "12.2.0"
-source = "git+https://github.com/BitGo/rust-miniscript?branch=opdrop#eb984856a2e560a7ee98b248519eb7ef5d650e5e"
+version = "12.3.4"
+source = "git+https://github.com/BitGo/rust-miniscript?tag=miniscript-12.3.4-opdrop#4e730b3a1ccc0116e6f6e05ddbf132938cc8395c"
 dependencies = [
  "bech32",
  "bitcoin",
