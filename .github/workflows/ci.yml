@@ -1,4 +1,4 @@
-name: Build and Test wasm-utxo
+name: "test / Test"
 
 on:
   push:
@@ -13,12 +13,12 @@ on:
 
 jobs:
   unit-test:
+    name: "test / Test"
+
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
-      matrix:
-        node-version: [18.x, 20.x]
 
     steps:
       - uses: actions/checkout@v4

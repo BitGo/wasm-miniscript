@@ -7,3 +7,4 @@ test/*.d.ts
 js/*.js
 js/*.d.ts
 js/wasm
+.vscode
