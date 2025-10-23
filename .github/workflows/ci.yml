@@ -46,6 +46,7 @@ jobs:
           rustup component add rustfmt
           cargo install wasm-pack --version 0.13.1
           cargo install wasm-opt --version 0.116.1
+          cargo install cargo-deny --locked
 
       - name: Build Info
         run: |
@@ -54,6 +55,7 @@ jobs:
           echo "rustc $(rustc --version)"
           echo "wasm-pack $(wasm-pack --version)"
           echo "wasm-opt $(wasm-opt --version)"
+          echo "cargo-deny $(cargo deny --version)"
           git --version
           echo "base ref $GITHUB_BASE_REF"
           echo "head ref $GITHUB_HEAD_REF"
@@ -64,6 +66,10 @@ jobs:
 
       - name: Install Packages
         run: npm ci --workspaces --include-workspace-root
+
+      - name: Check dependencies with cargo-deny
+        run: cargo deny check
+        working-directory: packages/wasm-utxo
 
       - name: test
         run: npx --version

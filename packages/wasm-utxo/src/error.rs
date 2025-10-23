@@ -43,3 +43,9 @@ impl WasmMiniscriptError {
         WasmMiniscriptError::StringError(s.to_string())
     }
 }
+
+impl From<crate::address::AddressError> for WasmMiniscriptError {
+    fn from(err: crate::address::AddressError) -> Self {
+        WasmMiniscriptError::StringError(err.to_string())
+    }
+}
