@@ -1,0 +1,18 @@
+# Deny multiple versions of dependencies
+[bans]
+multiple-versions = "deny"
+# Highlight bech32 specifically (ensures it's caught if duplicated)
+highlight = "all"
+
+# Allow git sources (needed for miniscript)
+[sources]
+allow-git = ["https://github.com/BitGo/rust-miniscript"]
+
+# Allow common licenses used in the Rust ecosystem
+[licenses]
+allow = ["MIT", "Apache-2.0", "CC0-1.0", "MITNFA", "Unicode-DFS-2016"]
+# Clarify license for unlicensed crate
+[[licenses.clarify]]
+name = "wasm-utxo"
+expression = "MIT OR Apache-2.0"
+license-files = []
