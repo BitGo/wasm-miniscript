@@ -4,6 +4,7 @@ mod error;
 mod fixed_script_wallet;
 mod miniscript;
 mod psbt;
+mod try_from_js_value;
 mod try_into_js_value;
 
 // re-export bitcoin from the miniscript crate

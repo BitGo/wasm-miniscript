@@ -3,8 +3,10 @@
 /// but for now we need to keep this compatibility layer.
 use wasm_bindgen::JsValue;
 
-use crate::address::{bech32, cashaddr, AddressError, Base58CheckCodec};
+use crate::address::{bech32, cashaddr, Base58CheckCodec};
 use crate::bitcoin::{Script, ScriptBuf};
+
+pub use crate::address::AddressError;
 
 type Result<T> = std::result::Result<T, AddressError>;
 
@@ -24,111 +26,9 @@ pub struct Network {
 impl Network {
     /// Parse a Network object from a JavaScript value
     pub fn from_js_value(js_network: &JsValue) -> Result<Self> {
-        // Helper to get a required number field
-        let get_number = |key: &str| -> Result<u32> {
-            let value =
-                js_sys::Reflect::get(js_network, &JsValue::from_str(key)).map_err(|_| {
-                    AddressError::InvalidAddress(format!(
-                        "Failed to read {} from network object",
-                        key
-                    ))
-                })?;
-
-            value
-                .as_f64()
-                .ok_or_else(|| AddressError::InvalidAddress(format!("{} must be a number", key)))
-                .map(|n| n as u32)
-        };
-
-        // Helper to get an optional string field
-        let get_optional_string = |key: &str| -> Result<Option<String>> {
-            let value =
-                js_sys::Reflect::get(js_network, &JsValue::from_str(key)).map_err(|_| {
-                    AddressError::InvalidAddress(format!(
-                        "Failed to read {} from network object",
-                        key
-                    ))
-                })?;
-
-            if value.is_undefined() || value.is_null() {
-                Ok(None)
-            } else {
-                value
-                    .as_string()
-                    .ok_or_else(|| {
-                        AddressError::InvalidAddress(format!("{} must be a string", key))
-                    })
-                    .map(Some)
-            }
-        };
-
-        let pub_key_hash = get_number("pubKeyHash")?;
-        let script_hash = get_number("scriptHash")?;
-        let bech32 = get_optional_string("bech32")?;
-
-        // Parse optional cashAddr object
-        let cash_addr = {
-            let cash_addr_obj = js_sys::Reflect::get(js_network, &JsValue::from_str("cashAddr"))
-                .map_err(|_| {
-                    AddressError::InvalidAddress(
-                        "Failed to read cashAddr from network object".to_string(),
-                    )
-                })?;
-
-            if cash_addr_obj.is_undefined() || cash_addr_obj.is_null() {
-                None
-            } else {
-                let prefix = js_sys::Reflect::get(&cash_addr_obj, &JsValue::from_str("prefix"))
-                    .map_err(|_| {
-                        AddressError::InvalidAddress("Failed to read cashAddr.prefix".to_string())
-                    })?
-                    .as_string()
-                    .ok_or_else(|| {
-                        AddressError::InvalidAddress("cashAddr.prefix must be a string".to_string())
-                    })?;
-
-                let pub_key_hash =
-                    js_sys::Reflect::get(&cash_addr_obj, &JsValue::from_str("pubKeyHash"))
-                        .map_err(|_| {
-                            AddressError::InvalidAddress(
-                                "Failed to read cashAddr.pubKeyHash".to_string(),
-                            )
-                        })?
-                        .as_f64()
-                        .ok_or_else(|| {
-                            AddressError::InvalidAddress(
-                                "cashAddr.pubKeyHash must be a number".to_string(),
-                            )
-                        })? as u32;
-
-                let script_hash =
-                    js_sys::Reflect::get(&cash_addr_obj, &JsValue::from_str("scriptHash"))
-                        .map_err(|_| {
-                            AddressError::InvalidAddress(
-                                "Failed to read cashAddr.scriptHash".to_string(),
-                            )
-                        })?
-                        .as_f64()
-                        .ok_or_else(|| {
-                            AddressError::InvalidAddress(
-                                "cashAddr.scriptHash must be a number".to_string(),
-                            )
-                        })? as u32;
-
-                Some(CashAddr {
-                    prefix,
-                    pub_key_hash,
-                    script_hash,
-                })
-            }
-        };
-
-        Ok(Network {
-            pub_key_hash,
-            script_hash,
-            cash_addr,
-            bech32,
-        })
+        use crate::try_from_js_value::TryFromJsValue;
+        Network::try_from_js_value(js_network)
+            .map_err(|e| AddressError::InvalidAddress(e.to_string()))
     }
 }
 
