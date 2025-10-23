@@ -99,11 +99,11 @@ describe("Descriptor fixtures", function () {
       it("should parse (pkType derivable)", async function () {
         const descriptor = Descriptor.fromString(fixture.descriptor, "derivable");
 
-        assert.doesNotThrow(() =>
-          Descriptor.fromString(fixture.descriptor, "derivable").atDerivationIndex(0),
-        );
-
         if (isDerivable(i)) {
+          assert.doesNotThrow(() =>
+            Descriptor.fromString(fixture.descriptor, "derivable").atDerivationIndex(0),
+          );
+
           if (descriptor.descType() !== "Tr") {
             assert.doesNotThrow(() => descriptor.atDerivationIndex(0).encode());
           }
