@@ -22,7 +22,7 @@ impl Bech32Codec {
 }
 
 /// Encode witness program with custom HRP
-fn encode_witness_with_custom_hrp(
+pub fn encode_witness_with_custom_hrp(
     program: &[u8],
     version: WitnessVersion,
     hrp_str: &str,
@@ -49,8 +49,38 @@ fn encode_witness_with_custom_hrp(
     Ok(address)
 }
 
+/// Extract witness version and program from a script
+pub fn extract_witness_program(script: &Script) -> Result<(WitnessVersion, &[u8])> {
+    if script.is_p2wpkh() {
+        if script.len() != 22 {
+            return Err(AddressError::InvalidScript(
+                "Invalid P2WPKH script length".to_string(),
+            ));
+        }
+        Ok((WitnessVersion::V0, &script.as_bytes()[2..22]))
+    } else if script.is_p2wsh() {
+        if script.len() != 34 {
+            return Err(AddressError::InvalidScript(
+                "Invalid P2WSH script length".to_string(),
+            ));
+        }
+        Ok((WitnessVersion::V0, &script.as_bytes()[2..34]))
+    } else if script.is_p2tr() {
+        if script.len() != 34 {
+            return Err(AddressError::InvalidScript(
+                "Invalid P2TR script length".to_string(),
+            ));
+        }
+        Ok((WitnessVersion::V1, &script.as_bytes()[2..34]))
+    } else {
+        Err(AddressError::UnsupportedScriptType(
+            "Bech32 only supports witness programs (P2WPKH, P2WSH, P2TR)".to_string(),
+        ))
+    }
+}
+
 /// Decode witness program with custom HRP
-fn decode_witness_with_custom_hrp(address: &str, expected_hrp: &str) -> Result<Vec<u8>> {
+pub fn decode_witness_with_custom_hrp(address: &str, expected_hrp: &str) -> Result<Vec<u8>> {
     use bech32::{self, Hrp};
 
     // Parse the expected HRP
@@ -92,34 +122,7 @@ fn decode_witness_with_custom_hrp(address: &str, expected_hrp: &str) -> Result<V
 
 impl AddressCodec for Bech32Codec {
     fn encode(&self, script: &Script) -> Result<String> {
-        let (witness_version, program) = if script.is_p2wpkh() {
-            if script.len() != 22 {
-                return Err(AddressError::InvalidScript(
-                    "Invalid P2WPKH script length".to_string(),
-                ));
-            }
-            (WitnessVersion::V0, &script.as_bytes()[2..22])
-        } else if script.is_p2wsh() {
-            if script.len() != 34 {
-                return Err(AddressError::InvalidScript(
-                    "Invalid P2WSH script length".to_string(),
-                ));
-            }
-            (WitnessVersion::V0, &script.as_bytes()[2..34])
-        } else if script.is_p2tr() {
-            if script.len() != 34 {
-                return Err(AddressError::InvalidScript(
-                    "Invalid P2TR script length".to_string(),
-                ));
-            }
-            (WitnessVersion::V1, &script.as_bytes()[2..34])
-        } else {
-            return Err(AddressError::UnsupportedScriptType(
-                "Bech32 only supports witness programs (P2WPKH, P2WSH, P2TR)".to_string(),
-            ));
-        };
-
-        // Use custom HRP encoding for all networks
+        let (witness_version, program) = extract_witness_program(script)?;
         encode_witness_with_custom_hrp(program, witness_version, self.hrp)
     }
 

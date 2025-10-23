@@ -35,6 +35,7 @@
 mod base58check;
 mod bech32;
 pub mod cashaddr;
+pub mod utxolib_compat;
 
 pub use base58check::Base58CheckCodec;
 pub use bech32::Bech32Codec;

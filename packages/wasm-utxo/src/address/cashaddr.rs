@@ -276,7 +276,7 @@ fn polymod(values: &[u8]) -> u64 {
 }
 
 /// Encode hash to cashaddr format
-fn encode_cashaddr(hash: &[u8], is_p2sh: bool, prefix: &str) -> Result<String> {
+pub fn encode_cashaddr(hash: &[u8], is_p2sh: bool, prefix: &str) -> Result<String> {
     if hash.len() != 20 {
         return Err(AddressError::CashaddrError(
             "Hash must be 20 bytes".to_string(),
@@ -326,7 +326,7 @@ fn encode_cashaddr(hash: &[u8], is_p2sh: bool, prefix: &str) -> Result<String> {
 }
 
 /// Decode cashaddr to (hash, is_p2sh)
-fn decode_cashaddr(address: &str, expected_prefix: &str) -> Result<(Vec<u8>, bool)> {
+pub fn decode_cashaddr(address: &str, expected_prefix: &str) -> Result<(Vec<u8>, bool)> {
     // Check for mixed case
     let has_lower = address.chars().any(|c| c.is_lowercase());
     let has_upper = address.chars().any(|c| c.is_uppercase());
