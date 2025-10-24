@@ -9,12 +9,12 @@ that help verify and co-sign transactions built by the BitGo Wallet Platform API
 
 This project is under active development.
 
-| Feature                                 | Bitcoin        | BitcoinCash | BitcoinGold | Dash    | Doge    | Litecoin | Zcash   |
-| --------------------------------------- | -------------- | ----------- | ----------- | ------- | ------- | -------- | ------- |
-| Descriptor Wallet: Address Support      | ✅ Complete    | 🚫          | 🚫          | 🚫      | 🚫      | 🚫       | 🚫      |
-| Descriptor Wallet: Transaction Support  | ✅ Complete    | 🚫          | 🚫          | 🚫      | 🚫      | 🚫       | 🚫      |
-| FixedScript Wallet: Address Generation  | 🏗️ In Progress | ⏳ TODO     | ⏳ TODO     | ⏳ TODO | ⏳ TODO | ⏳ TODO  | ⏳ TODO |
-| FixedScript Wallet: Transaction Support | ⏳ TODO        | ⏳ TODO     | ⏳ TODO     | ⏳ TODO | ⏳ TODO | ⏳ TODO  | ⏳ TODO |
+| Feature                                 | Bitcoin     | BitcoinCash | BitcoinGold | Dash        | Doge        | Litecoin    | Zcash       |
+| --------------------------------------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- |
+| Descriptor Wallet: Address Support      | ✅ Complete | 🚫          | 🚫          | 🚫          | 🚫          | 🚫          | 🚫          |
+| Descriptor Wallet: Transaction Support  | ✅ Complete | 🚫          | 🚫          | 🚫          | 🚫          | 🚫          | 🚫          |
+| FixedScript Wallet: Address Generation  | ✅ Complete | ✅ Complete | ✅ Complete | ✅ Complete | ✅ Complete | ✅ Complete | ✅ Complete |
+| FixedScript Wallet: Transaction Support | ⏳ TODO     | ⏳ TODO     | ⏳ TODO     | ⏳ TODO     | ⏳ TODO     | ⏳ TODO     | ⏳ TODO     |
 
 ## Building
 
