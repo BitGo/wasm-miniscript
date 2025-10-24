@@ -9,7 +9,7 @@ pub fn build_multisig_script_2_of_3(keys: &PubTriple) -> ScriptBuf {
     let total_count = 3;
     let mut builder = Builder::default().push_int(quorum as i64);
     for key in keys {
-        builder = builder.push_slice(&key.to_bytes())
+        builder = builder.push_slice(key.to_bytes())
     }
     builder
         .push_int(total_count as i64)
@@ -150,7 +150,7 @@ mod tests {
         // Test script with wrong number of instructions
         let script = Builder::new()
             .push_opcode(OP_PUSHNUM_2)
-            .push_slice(&[0x02; 33]) // Only one key instead of three
+            .push_slice([0x02; 33]) // Only one key instead of three
             .push_opcode(OP_PUSHNUM_3)
             .push_opcode(OP_CHECKMULTISIG)
             .into_script();
@@ -173,9 +173,9 @@ mod tests {
         // Build script with wrong quorum (OP_1 instead of OP_2)
         let script = Builder::new()
             .push_opcode(OP_PUSHNUM_1)
-            .push_slice(&pub_triple[0].to_bytes())
-            .push_slice(&pub_triple[1].to_bytes())
-            .push_slice(&pub_triple[2].to_bytes())
+            .push_slice(pub_triple[0].to_bytes())
+            .push_slice(pub_triple[1].to_bytes())
+            .push_slice(pub_triple[2].to_bytes())
             .push_opcode(OP_PUSHNUM_3)
             .push_opcode(OP_CHECKMULTISIG)
             .into_script();
@@ -198,9 +198,9 @@ mod tests {
         // Build script with wrong total (OP_4 instead of OP_3)
         let script = Builder::new()
             .push_opcode(OP_PUSHNUM_2)
-            .push_slice(&pub_triple[0].to_bytes())
-            .push_slice(&pub_triple[1].to_bytes())
-            .push_slice(&pub_triple[2].to_bytes())
+            .push_slice(pub_triple[0].to_bytes())
+            .push_slice(pub_triple[1].to_bytes())
+            .push_slice(pub_triple[2].to_bytes())
             .push_opcode(OP_PUSHNUM_4)
             .push_opcode(OP_CHECKMULTISIG)
             .into_script();
@@ -223,9 +223,9 @@ mod tests {
         // Build script without OP_CHECKMULTISIG
         let script = Builder::new()
             .push_opcode(OP_PUSHNUM_2)
-            .push_slice(&pub_triple[0].to_bytes())
-            .push_slice(&pub_triple[1].to_bytes())
-            .push_slice(&pub_triple[2].to_bytes())
+            .push_slice(pub_triple[0].to_bytes())
+            .push_slice(pub_triple[1].to_bytes())
+            .push_slice(pub_triple[2].to_bytes())
             .push_opcode(OP_PUSHNUM_3)
             .push_opcode(OP_PUSHNUM_1) // Wrong opcode instead of OP_CHECKMULTISIG
             .into_script();
@@ -242,9 +242,9 @@ mod tests {
         // Build script with invalid public key data
         let script = Builder::new()
             .push_opcode(OP_PUSHNUM_2)
-            .push_slice(&[0x00; 10]) // Invalid public key (too short)
-            .push_slice(&[0x02; 33]) // Valid compressed pubkey format
-            .push_slice(&[0x03; 33]) // Valid compressed pubkey format
+            .push_slice([0x00; 10]) // Invalid public key (too short)
+            .push_slice([0x02; 33]) // Valid compressed pubkey format
+            .push_slice([0x03; 33]) // Valid compressed pubkey format
             .push_opcode(OP_PUSHNUM_3)
             .push_opcode(OP_CHECKMULTISIG)
             .into_script();
@@ -262,8 +262,8 @@ mod tests {
         let script = Builder::new()
             .push_opcode(OP_PUSHNUM_2)
             .push_opcode(OP_PUSHNUM_1) // Wrong: should be pubkey bytes
-            .push_slice(&[0x02; 33])
-            .push_slice(&[0x03; 33])
+            .push_slice([0x02; 33])
+            .push_slice([0x03; 33])
             .push_opcode(OP_PUSHNUM_3)
             .push_opcode(OP_CHECKMULTISIG)
             .into_script();

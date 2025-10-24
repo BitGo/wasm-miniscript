@@ -474,7 +474,7 @@ mod tests {
         // Test roundtrip
         let (decoded_hash, is_p2sh) = decode_cashaddr(&address, "bitcoincash").unwrap();
         assert_eq!(decoded_hash, hash);
-        assert_eq!(is_p2sh, false);
+        assert!(!is_p2sh);
     }
 
     #[test]
@@ -490,7 +490,7 @@ mod tests {
         // Test roundtrip
         let (decoded_hash, is_p2sh) = decode_cashaddr(&address, "bchtest").unwrap();
         assert_eq!(decoded_hash, hash);
-        assert_eq!(is_p2sh, true);
+        assert!(is_p2sh);
     }
 
     #[test]
@@ -503,7 +503,7 @@ mod tests {
         // Test roundtrip
         let (decoded_hash, is_p2sh) = decode_cashaddr(&address, "pref").unwrap();
         assert_eq!(decoded_hash, hash);
-        assert_eq!(is_p2sh, true);
+        assert!(is_p2sh);
     }
 
     #[test]
@@ -585,7 +585,7 @@ mod tests {
         let (hash, is_p2sh) = decode_cashaddr(uppercase, "bitcoincash").unwrap();
 
         assert_eq!(hex::encode(hash).to_uppercase(), TEST_HASH_20);
-        assert_eq!(is_p2sh, false);
+        assert!(!is_p2sh);
     }
 
     #[test]
@@ -628,7 +628,7 @@ mod tests {
         // Test roundtrip
         let (decoded_hash, is_p2sh) = decode_cashaddr(&address, "ecash").unwrap();
         assert_eq!(decoded_hash, hash);
-        assert_eq!(is_p2sh, false);
+        assert!(!is_p2sh);
     }
 
     #[test]

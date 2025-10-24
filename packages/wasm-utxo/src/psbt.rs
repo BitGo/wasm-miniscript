@@ -3,8 +3,8 @@ use crate::error::WasmMiniscriptError;
 use crate::try_into_js_value::TryIntoJsValue;
 use crate::WrapDescriptor;
 use miniscript::bitcoin::bip32::Fingerprint;
-use miniscript::bitcoin::secp256k1::{Context, Secp256k1, Signing};
-use miniscript::bitcoin::{bip32, psbt, secp256k1, PublicKey, XOnlyPublicKey};
+use miniscript::bitcoin::secp256k1::{Secp256k1, Signing};
+use miniscript::bitcoin::{bip32, psbt, PublicKey, XOnlyPublicKey};
 use miniscript::bitcoin::{PrivateKey, Psbt};
 use miniscript::descriptor::{SinglePub, SinglePubKey};
 use miniscript::psbt::PsbtExt;
@@ -46,7 +46,7 @@ impl psbt::GetKey for SingleKeySigner {
     fn get_key<C: Signing>(
         &self,
         key_request: psbt::KeyRequest,
-        secp: &Secp256k1<C>,
+        _secp: &Secp256k1<C>,
     ) -> Result<Option<PrivateKey>, Self::Error> {
         match key_request {
             // NOTE: this KeyRequest does not occur for taproot signatures
@@ -54,15 +54,15 @@ impl psbt::GetKey for SingleKeySigner {
             // instead based on `DescriptorPublicKey::Single(SinglePub { origin: None, key, })`
             psbt::KeyRequest::Pubkey(req_pubkey) => {
                 if req_pubkey == self.pubkey {
-                    Ok(Some(self.privkey.clone()))
+                    Ok(Some(self.privkey))
                 } else {
                     Ok(None)
                 }
             }
 
-            psbt::KeyRequest::Bip32((fingerprint, path)) => {
+            psbt::KeyRequest::Bip32((fingerprint, _path)) => {
                 if fingerprint.eq(&self.fingerprint) || fingerprint.eq(&self.fingerprint_xonly) {
-                    Ok(Some(self.privkey.clone()))
+                    Ok(Some(self.privkey))
                 } else {
                     Ok(None)
                 }
@@ -99,7 +99,7 @@ impl WrapPsbt {
         match &descriptor.0 {
             WrapDescriptorEnum::Definite(d) => self
                 .0
-                .update_input_with_descriptor(input_index, &d)
+                .update_input_with_descriptor(input_index, d)
                 .map_err(JsError::from),
             WrapDescriptorEnum::Derivable(_, _) => Err(JsError::new(
                 "Cannot update input with a derivable descriptor",
@@ -119,7 +119,7 @@ impl WrapPsbt {
         match &descriptor.0 {
             WrapDescriptorEnum::Definite(d) => self
                 .0
-                .update_output_with_descriptor(output_index, &d)
+                .update_output_with_descriptor(output_index, d)
                 .map_err(JsError::from),
             WrapDescriptorEnum::Derivable(_, _) => Err(JsError::new(
                 "Cannot update output with a derivable descriptor",
@@ -149,7 +149,7 @@ impl WrapPsbt {
         let secp = Secp256k1::new();
         self.0
             .sign(&SingleKeySigner::from_privkey(privkey, &secp), &secp)
-            .map_err(|(r, errors)| {
+            .map_err(|(_r, errors)| {
                 WasmMiniscriptError::new(&format!("{} errors: {:?}", errors.len(), errors))
             })
             .and_then(|r| r.try_to_js_value())
@@ -200,7 +200,7 @@ mod tests {
             .values()
             .for_each(|key_source| {
                 let key_source_ref: KeySource = (
-                    Fingerprint::from_hex(&"aeee1e6a").unwrap(),
+                    Fingerprint::from_hex("aeee1e6a").unwrap(),
                     DerivationPath::from(vec![]),
                 );
                 assert_eq!(key_source.1, key_source_ref);

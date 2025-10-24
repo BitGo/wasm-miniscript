@@ -1,6 +1,6 @@
 use crate::error::WasmMiniscriptError;
 use crate::try_into_js_value::TryIntoJsValue;
-use miniscript::bitcoin::secp256k1::{Context, Secp256k1, Signing};
+use miniscript::bitcoin::secp256k1::{Secp256k1, Signing};
 use miniscript::bitcoin::ScriptBuf;
 use miniscript::descriptor::KeyMap;
 use miniscript::{DefiniteDescriptorKey, Descriptor, DescriptorPublicKey};
@@ -115,7 +115,7 @@ impl WrapDescriptor {
         secp: &Secp256k1<C>,
         descriptor: &str,
     ) -> Result<WrapDescriptor, WasmMiniscriptError> {
-        let (desc, keys) = Descriptor::parse_descriptor(&secp, descriptor)?;
+        let (desc, keys) = Descriptor::parse_descriptor(secp, descriptor)?;
         Ok(WrapDescriptor(WrapDescriptorEnum::Derivable(desc, keys)))
     }
 
@@ -217,15 +217,14 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(desc.has_wildcard(), false);
-        assert_eq!(
+        assert!(!desc.has_wildcard());
+        assert!(
             match desc {
                 WrapDescriptor {
                     0: crate::descriptor::WrapDescriptorEnum::Definite(_),
                 } => true,
                 _ => false,
-            },
-            true
+            }
         );
     }
 }
