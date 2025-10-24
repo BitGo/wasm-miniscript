@@ -265,9 +265,9 @@ fn polymod(values: &[u8]) -> u64 {
         let c0 = (c >> 35) as u8;
         c = ((c & 0x07ffffffff) << 5) ^ (d as u64);
 
-        for i in 0..5 {
+        for (i, &generator) in generators.iter().enumerate() {
             if (c0 & (1 << i)) != 0 {
-                c ^= generators[i];
+                c ^= generator;
             }
         }
     }
