@@ -17,7 +17,7 @@ use wasm_bindgen::{JsError, JsValue};
 struct SingleKeySigner {
     privkey: PrivateKey,
     pubkey: PublicKey,
-    pubkey_xonly: XOnlyPublicKey,
+    _pubkey_xonly: XOnlyPublicKey,
     fingerprint: Fingerprint,
     fingerprint_xonly: Fingerprint,
 }
@@ -33,7 +33,7 @@ impl SingleKeySigner {
         SingleKeySigner {
             privkey,
             pubkey,
-            pubkey_xonly,
+            _pubkey_xonly: pubkey_xonly,
             fingerprint: SingleKeySigner::fingerprint(SinglePubKey::FullKey(pubkey)),
             fingerprint_xonly: SingleKeySigner::fingerprint(SinglePubKey::XOnly(pubkey_xonly)),
         }
