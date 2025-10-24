@@ -15,3 +15,5 @@ pub use address::utxolib_compat;
 pub use descriptor::WrapDescriptor;
 pub use miniscript::WrapMiniscript;
 pub use psbt::WrapPsbt;
+
+pub use crate::fixed_script_wallet::*;
