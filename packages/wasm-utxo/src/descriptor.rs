@@ -4,6 +4,7 @@ use miniscript::bitcoin::secp256k1::{Secp256k1, Signing};
 use miniscript::bitcoin::ScriptBuf;
 use miniscript::descriptor::KeyMap;
 use miniscript::{DefiniteDescriptorKey, Descriptor, DescriptorPublicKey};
+use std::fmt;
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;
 
@@ -27,12 +28,9 @@ impl WrapDescriptor {
     }
 
     #[wasm_bindgen(js_name = toString)]
+    #[allow(clippy::inherent_to_string_shadow_display)]
     pub fn to_string(&self) -> String {
-        match &self.0 {
-            WrapDescriptorEnum::Derivable(desc, _) => desc.to_string(),
-            WrapDescriptorEnum::Definite(desc) => desc.to_string(),
-            WrapDescriptorEnum::String(desc) => desc.to_string(),
-        }
+        format!("{}", self)
     }
 
     #[wasm_bindgen(js_name = hasWildcard)]
@@ -195,6 +193,16 @@ impl WrapDescriptor {
             WrapDescriptor::from_string_derivable(&secp, &descriptor.to_string())
         } else {
             WrapDescriptor::from_string_definite(&descriptor.to_string())
+        }
+    }
+}
+
+impl fmt::Display for WrapDescriptor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.0 {
+            WrapDescriptorEnum::Derivable(desc, _) => write!(f, "{}", desc),
+            WrapDescriptorEnum::Definite(desc) => write!(f, "{}", desc),
+            WrapDescriptorEnum::String(desc) => write!(f, "{}", desc),
         }
     }
 }
