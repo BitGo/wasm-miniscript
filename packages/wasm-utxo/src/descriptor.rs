@@ -218,13 +218,11 @@ mod tests {
         .unwrap();
 
         assert!(!desc.has_wildcard());
-        assert!(
-            match desc {
-                WrapDescriptor {
-                    0: crate::descriptor::WrapDescriptorEnum::Definite(_),
-                } => true,
-                _ => false,
+        assert!(matches!(
+            desc,
+            WrapDescriptor {
+                0: crate::descriptor::WrapDescriptorEnum::Definite(_),
             }
-        );
+        ));
     }
 }
