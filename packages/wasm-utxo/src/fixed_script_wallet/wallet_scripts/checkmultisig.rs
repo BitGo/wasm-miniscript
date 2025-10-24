@@ -51,13 +51,13 @@ pub fn parse_multisig_script_2_of_3(script: &ScriptBuf) -> Result<PubTriple, Str
 
     // Extract the three public keys
     let mut keys = Vec::new();
-    for i in 1..4 {
-        match &instructions[i] {
+    for (idx, instruction) in instructions.iter().enumerate().skip(1).take(3) {
+        match instruction {
             Instruction::PushBytes(bytes) => {
                 let key = CompressedPublicKey::from_slice(bytes.as_bytes()).map_err(|e| {
                     format!(
                         "Failed to parse compressed public key at position {}: {}",
-                        i, e
+                        idx, e
                     )
                 })?;
                 keys.push(key);
@@ -65,7 +65,7 @@ pub fn parse_multisig_script_2_of_3(script: &ScriptBuf) -> Result<PubTriple, Str
             _ => {
                 return Err(format!(
                     "Instruction at position {} should be a push bytes instruction",
-                    i
+                    idx
                 ));
             }
         }

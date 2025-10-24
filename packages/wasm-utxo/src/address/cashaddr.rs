@@ -457,7 +457,6 @@ mod tests {
     ///
     /// Using bech32 crate's `ByteIterExt::bytes_to_fes()` or checksum functions would fail these tests
     /// because they implement Bech32/Bech32m logic, not CashAddr logic.
-
     // Test vector: 20-byte P2PKH payload
     const TEST_HASH_20: &str = "F5BF48B397DAE70BE82B3CCA4793F8EB2B6CDAC9";
 
