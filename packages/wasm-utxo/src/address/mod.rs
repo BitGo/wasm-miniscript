@@ -35,11 +35,16 @@
 mod base58check;
 mod bech32;
 pub mod cashaddr;
+pub mod networks;
 pub mod utxolib_compat;
 
 pub use base58check::Base58CheckCodec;
 pub use bech32::Bech32Codec;
 pub use cashaddr::CashAddrCodec;
+pub use networks::{
+    from_output_script_with_coin, from_output_script_with_network, to_output_script_with_coin,
+    to_output_script_with_network,
+};
 
 use crate::bitcoin::{Script, ScriptBuf};
 use std::fmt;
@@ -172,11 +177,6 @@ pub fn from_output_script(script: &Script, codec: &dyn AddressCodec) -> Result<S
     codec.encode(script)
 }
 
-/// Convert address string to output script (convenience wrapper)
-pub fn to_output_script(address: &str, codec: &dyn AddressCodec) -> Result<ScriptBuf> {
-    codec.decode(address)
-}
-
 /// Try multiple codecs to decode an address
 pub fn to_output_script_try_codecs(
     address: &str,
@@ -199,6 +199,11 @@ mod tests {
     use super::*;
     use crate::bitcoin::hashes::Hash;
     use crate::bitcoin::PubkeyHash;
+
+    /// Convert address string to output script (convenience wrapper)
+    pub fn to_output_script(address: &str, codec: &dyn AddressCodec) -> Result<ScriptBuf> {
+        codec.decode(address)
+    }
 
     #[test]
     fn test_base58_roundtrip() {

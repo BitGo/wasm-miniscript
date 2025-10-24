@@ -1,8 +1,8 @@
 //! Cashaddr encoding/decoding module for Bitcoin Cash and eCash.
 //!
 //! Implements the cashaddr checksum algorithm as defined in:
-//! - Spec: https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/cashaddr.md
-//! - Reference implementation: https://github.com/Bitcoin-ABC/bitcoin-abc/blob/master/src/cashaddr.cpp
+//! - Spec: <https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/cashaddr.md>
+//! - Reference implementation: <https://github.com/Bitcoin-ABC/bitcoin-abc/blob/master/src/cashaddr.cpp>
 //!
 //! This implementation directly follows the official specification and passes all test vectors.
 //!

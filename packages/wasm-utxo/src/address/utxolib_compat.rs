@@ -3,6 +3,7 @@
 /// but for now we need to keep this compatibility layer.
 use wasm_bindgen::JsValue;
 
+use crate::address::networks::AddressFormat;
 use crate::address::{bech32, cashaddr, Base58CheckCodec};
 use crate::bitcoin::{Script, ScriptBuf};
 
@@ -33,10 +34,29 @@ impl Network {
 }
 
 /// Convert output script to address string using a utxolib Network object
-pub fn from_output_script_with_network(script: &Script, network: &Network) -> Result<String> {
-    // Determine script type and choose appropriate codec
-    // Note: We always use base58check for P2PKH/P2SH to match utxolib behavior,
-    // even if cashAddr is available. Cashaddr is only used for decoding.
+pub fn from_output_script_with_network(
+    script: &Script,
+    network: &Network,
+    format: AddressFormat,
+) -> Result<String> {
+    // Handle cashaddr format if requested
+    if matches!(format, AddressFormat::Cashaddr) {
+        if let Some(ref cash_addr) = network.cash_addr {
+            if script.is_p2pkh() {
+                let hash = &script.as_bytes()[3..23];
+                return cashaddr::encode_cashaddr(hash, false, &cash_addr.prefix);
+            } else if script.is_p2sh() {
+                let hash = &script.as_bytes()[2..22];
+                return cashaddr::encode_cashaddr(hash, true, &cash_addr.prefix);
+            }
+        } else {
+            return Err(AddressError::UnsupportedScriptType(
+                "Cashaddr format is only supported for Bitcoin Cash and eCash networks".to_string(),
+            ));
+        }
+    }
+
+    // Default format: use base58check for P2PKH/P2SH
     if script.is_p2pkh() || script.is_p2sh() {
         let codec = Base58CheckCodec::new(network.pub_key_hash, network.script_hash);
         use crate::address::AddressCodec;
@@ -114,17 +134,23 @@ impl Address {
     /// # Arguments
     /// * `script` - The output script as a byte array
     /// * `network` - The utxolib Network object from JavaScript
+    /// * `format` - Optional address format: "default" or "cashaddr" (only applicable for Bitcoin Cash and eCash)
     #[wasm_bindgen(js_name = fromOutputScript)]
     pub fn from_output_script_js(
         script: &[u8],
         network: JsValue,
+        format: Option<String>,
     ) -> std::result::Result<String, JsValue> {
         let network =
             Network::from_js_value(&network).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let script_obj = Script::from_bytes(script);
 
-        from_output_script_with_network(script_obj, &network)
+        let format_str = format.as_deref();
+        let address_format = AddressFormat::from_optional_str(format_str)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        from_output_script_with_network(script_obj, &network, address_format)
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
@@ -133,13 +159,22 @@ impl Address {
     /// # Arguments
     /// * `address` - The address string
     /// * `network` - The utxolib Network object from JavaScript
+    /// * `format` - Optional address format (currently unused for decoding as all formats are accepted)
     #[wasm_bindgen(js_name = toOutputScript)]
     pub fn to_output_script_js(
         address: &str,
         network: JsValue,
+        format: Option<String>,
     ) -> std::result::Result<Vec<u8>, JsValue> {
         let network =
             Network::from_js_value(&network).map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        // Validate format parameter even though we don't use it for decoding
+        if let Some(fmt) = format {
+            let format_str = Some(fmt.as_str());
+            AddressFormat::from_optional_str(format_str)
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        }
 
         to_output_script_with_network(address, &network)
             .map(|script| script.to_bytes())
