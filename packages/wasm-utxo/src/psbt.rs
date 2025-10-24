@@ -86,8 +86,9 @@ impl WrapPsbt {
         self.0.serialize()
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn clone(&self) -> WrapPsbt {
-        WrapPsbt(self.0.clone())
+        Clone::clone(self)
     }
 
     #[wasm_bindgen(js_name = updateInputWithDescriptor)]
@@ -162,6 +163,12 @@ impl WrapPsbt {
             .map_err(|vec_err| {
                 WasmMiniscriptError::new(&format!("{} errors: {:?}", vec_err.len(), vec_err))
             })
+    }
+}
+
+impl Clone for WrapPsbt {
+    fn clone(&self) -> Self {
+        WrapPsbt(self.0.clone())
     }
 }
 
