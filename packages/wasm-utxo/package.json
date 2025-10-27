@@ -37,7 +37,7 @@
   "devDependencies": {
     "@bitgo/utxo-lib": "^10.1.0",
     "@types/mocha": "^10.0.7",
-    "@types/node": "^20.14.10",
+    "@types/node": "^22.10.5",
     "mocha": "^10.6.0",
     "tsx": "4.20.6",
     "typescript": "^5.5.3"

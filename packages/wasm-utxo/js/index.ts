@@ -35,7 +35,7 @@ declare module "./wasm/wasm_utxo" {
 
   interface WrapPsbt {
     signWithXprv(this: WrapPsbt, xprv: string): SignPsbtResult;
-    signWithPrv(this: WrapPsbt, prv: Buffer): SignPsbtResult;
+    signWithPrv(this: WrapPsbt, prv: Uint8Array): SignPsbtResult;
   }
 }
 
