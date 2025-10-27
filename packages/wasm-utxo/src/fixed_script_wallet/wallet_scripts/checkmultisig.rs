@@ -100,14 +100,15 @@ mod tests {
     use crate::bitcoin::blockdata::script::Builder;
     use crate::fixed_script_wallet::wallet_keys::tests::get_test_wallet_keys;
     use crate::fixed_script_wallet::wallet_keys::to_pub_triple;
-    use crate::fixed_script_wallet::wallet_scripts::{derive_xpubs, Chain};
+    use crate::fixed_script_wallet::wallet_scripts::Chain;
 
     #[test]
     fn test_parse_multisig_script_2_of_3_valid() {
         // Get test keys
         let wallet_keys = get_test_wallet_keys("test_parse");
-        let ctx = crate::bitcoin::secp256k1::Secp256k1::new();
-        let derived_keys = derive_xpubs(&wallet_keys, &ctx, Chain::P2shExternal, 0);
+        let derived_keys = wallet_keys
+            .derive_for_chain_and_index(Chain::P2shExternal as u32, 0)
+            .unwrap();
         let pub_triple = to_pub_triple(&derived_keys);
 
         // Build a valid 2-of-3 multisig script
@@ -125,8 +126,9 @@ mod tests {
         // Test multiple different key sets
         for seed in ["seed1", "seed2", "seed3"] {
             let wallet_keys = get_test_wallet_keys(seed);
-            let ctx = crate::bitcoin::secp256k1::Secp256k1::new();
-            let derived_keys = derive_xpubs(&wallet_keys, &ctx, Chain::P2shExternal, 42);
+            let derived_keys = wallet_keys
+                .derive_for_chain_and_index(Chain::P2shExternal as u32, 42)
+                .unwrap();
             let original_keys = to_pub_triple(&derived_keys);
 
             // Build script from keys
@@ -166,8 +168,9 @@ mod tests {
     fn test_parse_multisig_script_2_of_3_wrong_quorum() {
         // Create a valid key for testing
         let wallet_keys = get_test_wallet_keys("test_wrong_quorum");
-        let ctx = crate::bitcoin::secp256k1::Secp256k1::new();
-        let derived_keys = derive_xpubs(&wallet_keys, &ctx, Chain::P2shExternal, 0);
+        let derived_keys = wallet_keys
+            .derive_for_chain_and_index(Chain::P2shExternal as u32, 0)
+            .unwrap();
         let pub_triple = to_pub_triple(&derived_keys);
 
         // Build script with wrong quorum (OP_1 instead of OP_2)
@@ -191,8 +194,9 @@ mod tests {
     fn test_parse_multisig_script_2_of_3_wrong_total() {
         // Create a valid key for testing
         let wallet_keys = get_test_wallet_keys("test_wrong_total");
-        let ctx = crate::bitcoin::secp256k1::Secp256k1::new();
-        let derived_keys = derive_xpubs(&wallet_keys, &ctx, Chain::P2shExternal, 0);
+        let derived_keys = wallet_keys
+            .derive_for_chain_and_index(Chain::P2shExternal as u32, 0)
+            .unwrap();
         let pub_triple = to_pub_triple(&derived_keys);
 
         // Build script with wrong total (OP_4 instead of OP_3)
@@ -216,8 +220,9 @@ mod tests {
     fn test_parse_multisig_script_2_of_3_missing_checkmultisig() {
         // Create a valid key for testing
         let wallet_keys = get_test_wallet_keys("test_missing_checkmultisig");
-        let ctx = crate::bitcoin::secp256k1::Secp256k1::new();
-        let derived_keys = derive_xpubs(&wallet_keys, &ctx, Chain::P2shExternal, 0);
+        let derived_keys = wallet_keys
+            .derive_for_chain_and_index(Chain::P2shExternal as u32, 0)
+            .unwrap();
         let pub_triple = to_pub_triple(&derived_keys);
 
         // Build script without OP_CHECKMULTISIG
