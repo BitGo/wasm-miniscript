@@ -44,6 +44,7 @@ import { Address as WasmAddress } from "./wasm/wasm_utxo";
 export { WrapDescriptor as Descriptor } from "./wasm/wasm_utxo";
 export { WrapMiniscript as Miniscript } from "./wasm/wasm_utxo";
 export { WrapPsbt as Psbt } from "./wasm/wasm_utxo";
+export { FixedScriptWallet } from "./wasm/wasm_utxo";
 
 export namespace utxolibCompat {
   export const Address = WasmAddress;
