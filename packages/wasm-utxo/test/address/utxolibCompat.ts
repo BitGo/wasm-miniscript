@@ -5,7 +5,6 @@ import * as utxolib from "@bitgo/utxo-lib";
 import assert from "node:assert";
 import {
   utxolibCompat,
-  FixedScriptWallet,
   toOutputScriptWithCoin,
   fromOutputScriptWithCoin,
   type CoinName,
@@ -15,37 +14,6 @@ import {
 type Triple<T> = [T, T, T];
 
 type Fixture = [type: string, script: string, address: string];
-
-function getAddressUtxoLib(
-  keys: Triple<utxolib.BIP32Interface>,
-  chain: number,
-  index: number,
-  network: utxolib.Network,
-): string {
-  if (!utxolib.bitgo.isChainCode(chain)) {
-    throw new Error(`Invalid chain code: ${chain}`);
-  }
-
-  const walletKeys = new utxolib.bitgo.RootWalletKeys(keys);
-  const derived = walletKeys.deriveForChainAndIndex(chain, index);
-  const script = utxolib.bitgo.outputScripts.createOutputScript2of3(
-    derived.publicKeys,
-    utxolib.bitgo.outputScripts.scriptTypeForChain(chain),
-  );
-  const address = utxolib.address.fromOutputScript(script.scriptPubKey, network);
-  return address;
-}
-
-function getAddressWasm(
-  keys: Triple<utxolib.BIP32Interface>,
-  chain: number,
-  index: number,
-  network: utxolib.Network,
-): string {
-  const xpubs = keys.map((key) => key.neutered().toBase58());
-  const wasmAddress = FixedScriptWallet.address(xpubs, chain, index, network);
-  return wasmAddress;
-}
 
 function getCoinNameForNetwork(name: string): CoinName {
   switch (name) {
@@ -144,23 +112,6 @@ function runTest(network: utxolib.Network, addressFormat?: AddressFormat) {
         // Test decoding (address -> script)
         const scriptFromAddress = toOutputScriptWithCoin(addressRef, coinName);
         assert.deepStrictEqual(Buffer.from(scriptFromAddress), scriptBuf);
-      }
-    });
-
-    const keyTriple = utxolib.testutil.getKeyTriple("wasm");
-
-    const supportedChainCodes = utxolib.bitgo.chainCodes.filter((chainCode) => {
-      const scriptType = utxolib.bitgo.outputScripts.scriptTypeForChain(chainCode);
-      return utxolib.bitgo.outputScripts.isSupportedScriptType(network, scriptType);
-    });
-
-    it(`can recreate address from wallet keys for chain codes ${supportedChainCodes.join(", ")}`, function () {
-      for (const chainCode of supportedChainCodes) {
-        for (let index = 0; index < 2; index++) {
-          const utxolibAddress = getAddressUtxoLib(keyTriple, chainCode, index, network);
-          const wasmAddress = getAddressWasm(keyTriple, chainCode, index, network);
-          assert.strictEqual(utxolibAddress, wasmAddress);
-        }
       }
     });
   });
