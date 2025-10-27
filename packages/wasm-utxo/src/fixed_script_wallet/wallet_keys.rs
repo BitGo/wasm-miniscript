@@ -1,10 +1,50 @@
 use std::convert::TryInto;
+use std::str::FromStr;
 
 use crate::bitcoin::{bip32::Xpub, CompressedPublicKey};
+use crate::error::WasmMiniscriptError;
+use wasm_bindgen::JsValue;
 
 pub type XpubTriple = [Xpub; 3];
 
 pub type PubTriple = [CompressedPublicKey; 3];
+
+pub fn xpub_triple_from_jsvalue(keys: &JsValue) -> Result<XpubTriple, WasmMiniscriptError> {
+    let keys_array = js_sys::Array::from(keys);
+    if keys_array.length() != 3 {
+        return Err(WasmMiniscriptError::new("Expected exactly 3 xpub keys"));
+    }
+
+    let key_strings: Result<[String; 3], _> = (0..3)
+        .map(|i| {
+            keys_array.get(i).as_string().ok_or_else(|| {
+                WasmMiniscriptError::new(&format!("Key at index {} is not a string", i))
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .and_then(|v| {
+            v.try_into()
+                .map_err(|_| WasmMiniscriptError::new("Failed to convert to array"))
+        });
+
+    xpub_triple_from_strings(&key_strings?)
+}
+
+pub fn xpub_triple_from_strings(
+    xpub_strings: &[String; 3],
+) -> Result<XpubTriple, WasmMiniscriptError> {
+    let xpubs: Result<Vec<Xpub>, _> = xpub_strings
+        .iter()
+        .map(|s| {
+            Xpub::from_str(s)
+                .map_err(|e| WasmMiniscriptError::new(&format!("Failed to parse xpub: {}", e)))
+        })
+        .collect();
+
+    xpubs?
+        .try_into()
+        .map_err(|_| WasmMiniscriptError::new("Expected exactly 3 xpubs"))
+}
 
 pub fn to_pub_triple(xpubs: &XpubTriple) -> PubTriple {
     xpubs
