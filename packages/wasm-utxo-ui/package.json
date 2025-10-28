@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@bitgo/utxo-lib": "^10.1.0",
-    "@bitgo/wasm-utxo": "0.0.0-semantic-release-managed",
+    "@bitgo/wasm-utxo": "*",
     "assert": "^2.1.0",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.0",

@@ -46,18 +46,18 @@ jobs:
           echo "base ref $GITHUB_BASE_REF"
           echo "head ref $GITHUB_HEAD_REF"
 
-      - name: Build Info
+      - name: Configure Git
         run: |
-          echo "node $(node --version)"
-          echo "npm $(npm --version)"
-          echo "rust $(rustup --version)"
-          git --version
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Configure NPM
         run: |
           echo "workspaces-update = false" >> .npmrc
           echo "@bitgo:registry=https://registry.npmjs.org" >> .npmrc
-          echo "//registry.npmjs.org/:always-auth=true" >> .npmrc
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Install Packages
         run: npm ci --workspaces --include-workspace-root
@@ -69,7 +69,7 @@ jobs:
         run: npm --workspaces test
 
       - name: Release
-        run: npx multi-semantic-release
+        run: npx lerna publish --yes --no-verify-access
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
