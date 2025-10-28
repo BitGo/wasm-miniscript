@@ -9,6 +9,39 @@ This repo is the home of BitGo's WASM libraries.
 - [wasm-pack](https://rustwasm.github.io/wasm-pack/) (install with `cargo install wasm-pack`)
 - [Node.js](https://nodejs.org/en/)
 
+# Package Management
+
+This monorepo uses [Lerna](https://lerna.js.org/) for managing package versions and publishing to npm.
+
+## Versioning
+
+Packages use **independent versioning** with [Conventional Commits](https://www.conventionalcommits.org/) to automatically determine version bumps:
+
+- `fix:` commits trigger patch releases (0.0.x)
+- `feat:` commits trigger minor releases (0.x.0)
+- `BREAKING CHANGE:` in commit body triggers major releases (x.0.0)
+
+## Publishing
+
+Publishing is automated via GitHub Actions when changes are pushed to `master` or `beta` branches. The workflow:
+
+1. Builds all packages
+2. Runs tests
+3. Uses Lerna to analyze commits since last release
+4. Automatically versions and publishes changed packages
+
+To manually publish (if needed):
+
+```bash
+npx lerna publish
+```
+
+To see what would be published without actually publishing:
+
+```bash
+npx lerna changed
+```
+
 # Packages
 
 
