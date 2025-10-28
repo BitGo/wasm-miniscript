@@ -18,11 +18,11 @@ use crate::try_from_js_value::TryFromJsValue;
 use crate::utxolib_compat::Network;
 
 #[wasm_bindgen]
-pub struct FixedScriptWallet;
+pub struct FixedScriptWalletNamespace;
 
 #[wasm_bindgen]
-impl FixedScriptWallet {
-    #[wasm_bindgen(js_name = outputScript)]
+impl FixedScriptWalletNamespace {
+    #[wasm_bindgen]
     pub fn output_script(
         keys: JsValue,
         chain: u32,
@@ -36,7 +36,7 @@ impl FixedScriptWallet {
         Ok(scripts.output_script().to_bytes())
     }
 
-    #[wasm_bindgen(js_name = address)]
+    #[wasm_bindgen]
     pub fn address(
         keys: JsValue,
         chain: u32,

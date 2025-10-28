@@ -211,36 +211,35 @@ pub fn from_output_script_with_coin_and_format(
 // WASM bindings
 use wasm_bindgen::prelude::*;
 
-/// WASM binding: Convert an address string to an output script using a BitGo coin name.
-#[wasm_bindgen(js_name = toOutputScriptWithCoin)]
-pub fn to_output_script_with_coin_js(
-    address: &str,
-    coin: &str,
-) -> std::result::Result<Vec<u8>, JsValue> {
-    to_output_script_with_coin(address, coin)
-        .map(|script| script.to_bytes())
-        .map_err(|e| JsValue::from_str(&e.to_string()))
-}
+#[wasm_bindgen]
+pub struct AddressNamespace;
 
-/// WASM binding: Convert an output script to an address string using a BitGo coin name.
-///
-/// # Arguments
-/// * `script` - The output script bytes
-/// * `coin` - The BitGo coin name (e.g., "btc", "bch", "ecash")
-/// * `format` - Optional address format: "default" or "cashaddr" (only applicable for Bitcoin Cash and eCash)
-#[wasm_bindgen(js_name = fromOutputScriptWithCoin)]
-pub fn from_output_script_with_coin_js(
-    script: &[u8],
-    coin: &str,
-    format: Option<String>,
-) -> std::result::Result<String, JsValue> {
-    let script_obj = Script::from_bytes(script);
-    let format_str = format.as_deref();
-    let address_format = AddressFormat::from_optional_str(format_str)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+#[wasm_bindgen]
+impl AddressNamespace {
+    #[wasm_bindgen]
+    pub fn to_output_script_with_coin(
+        address: &str,
+        coin: &str,
+    ) -> std::result::Result<Vec<u8>, JsValue> {
+        to_output_script_with_coin(address, coin)
+            .map(|script| script.to_bytes())
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
 
-    from_output_script_with_coin_and_format(script_obj, coin, address_format)
-        .map_err(|e| JsValue::from_str(&e.to_string()))
+    #[wasm_bindgen]
+    pub fn from_output_script_with_coin(
+        script: &[u8],
+        coin: &str,
+        format: Option<String>,
+    ) -> std::result::Result<String, JsValue> {
+        let script_obj = Script::from_bytes(script);
+        let format_str = format.as_deref();
+        let address_format = AddressFormat::from_optional_str(format_str)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        from_output_script_with_coin_and_format(script_obj, coin, address_format)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
 }
 
 #[cfg(test)]

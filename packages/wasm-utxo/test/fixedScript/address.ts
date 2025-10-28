@@ -2,7 +2,7 @@ import assert from "node:assert";
 
 import * as utxolib from "@bitgo/utxo-lib";
 
-import { FixedScriptWallet } from "../../js";
+import { fixedScriptWallet } from "../../js";
 
 type Triple<T> = [T, T, T];
 
@@ -42,7 +42,7 @@ function runTest(network: utxolib.Network, derivationPrefixes?: Triple<string>) 
             derivationPrefixes,
           );
           const utxolibAddress = getAddressUtxoLib(rootWalletKeys, chainCode, index, network);
-          const wasmAddress = FixedScriptWallet.address(rootWalletKeys, chainCode, index, network);
+          const wasmAddress = fixedScriptWallet.address(rootWalletKeys, chainCode, index, network);
           assert.strictEqual(utxolibAddress, wasmAddress);
         }
       }

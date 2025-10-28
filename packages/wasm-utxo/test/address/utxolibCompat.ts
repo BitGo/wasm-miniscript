@@ -3,13 +3,7 @@ import * as fs from "node:fs/promises";
 
 import * as utxolib from "@bitgo/utxo-lib";
 import assert from "node:assert";
-import {
-  utxolibCompat,
-  toOutputScriptWithCoin,
-  fromOutputScriptWithCoin,
-  type CoinName,
-  AddressFormat,
-} from "../../js";
+import { utxolibCompat, address as addressNs, type CoinName, AddressFormat } from "../../js";
 
 type Triple<T> = [T, T, T];
 
@@ -87,13 +81,9 @@ function runTest(network: utxolib.Network, addressFormat?: AddressFormat) {
       for (const fixture of fixtures) {
         const [_type, script, addressRef] = fixture;
         const scriptBuf = Buffer.from(script, "hex");
-        const address = utxolibCompat.Address.fromOutputScript(scriptBuf, network, addressFormat);
+        const address = utxolibCompat.fromOutputScript(scriptBuf, network, addressFormat);
         assert.strictEqual(address, addressRef);
-        const scriptFromAddress = utxolibCompat.Address.toOutputScript(
-          address,
-          network,
-          addressFormat,
-        );
+        const scriptFromAddress = utxolibCompat.toOutputScript(address, network, addressFormat);
         assert.deepStrictEqual(Buffer.from(scriptFromAddress), scriptBuf);
       }
     });
@@ -106,11 +96,11 @@ function runTest(network: utxolib.Network, addressFormat?: AddressFormat) {
         const scriptBuf = Buffer.from(script, "hex");
 
         // Test encoding (script -> address)
-        const address = fromOutputScriptWithCoin(scriptBuf, coinName, addressFormat);
+        const address = addressNs.fromOutputScriptWithCoin(scriptBuf, coinName, addressFormat);
         assert.strictEqual(address, addressRef);
 
         // Test decoding (address -> script)
-        const scriptFromAddress = toOutputScriptWithCoin(addressRef, coinName);
+        const scriptFromAddress = addressNs.toOutputScriptWithCoin(addressRef, coinName);
         assert.deepStrictEqual(Buffer.from(scriptFromAddress), scriptBuf);
       }
     });
