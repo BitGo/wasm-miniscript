@@ -80,5 +80,13 @@ jobs:
       - name: Check Source Code Formatting
         run: npm run check-fmt
 
+      - name: Wasm-Pack Test (Node)
+        run: npm run test:wasm-pack-node
+        working-directory: packages/wasm-utxo
+
+      - name: Wasm-Pack Test (Chrome)
+        run: npm run test:wasm-pack-chrome
+        working-directory: packages/wasm-utxo
+
       - name: Unit Test
         run: npm --workspaces test

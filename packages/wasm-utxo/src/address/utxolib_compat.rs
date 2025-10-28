@@ -125,18 +125,18 @@ pub fn to_output_script_with_network(address: &str, network: &Network) -> Result
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct Address;
+pub struct UtxolibCompatNamespace;
 
 #[wasm_bindgen]
-impl Address {
+impl UtxolibCompatNamespace {
     /// Convert output script to address string
     ///
     /// # Arguments
     /// * `script` - The output script as a byte array
     /// * `network` - The utxolib Network object from JavaScript
     /// * `format` - Optional address format: "default" or "cashaddr" (only applicable for Bitcoin Cash and eCash)
-    #[wasm_bindgen(js_name = fromOutputScript)]
-    pub fn from_output_script_js(
+    #[wasm_bindgen]
+    pub fn from_output_script(
         script: &[u8],
         network: JsValue,
         format: Option<String>,
@@ -160,8 +160,8 @@ impl Address {
     /// * `address` - The address string
     /// * `network` - The utxolib Network object from JavaScript
     /// * `format` - Optional address format (currently unused for decoding as all formats are accepted)
-    #[wasm_bindgen(js_name = toOutputScript)]
-    pub fn to_output_script_js(
+    #[wasm_bindgen]
+    pub fn to_output_script(
         address: &str,
         network: JsValue,
         format: Option<String>,

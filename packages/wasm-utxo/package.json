@@ -27,6 +27,8 @@
   },
   "scripts": {
     "test": "mocha --recursive test",
+    "test:wasm-pack-node": "wasm-pack test --node",
+    "test:wasm-pack-chrome": "wasm-pack test --headless --chrome",
     "build:wasm": "make js/wasm/ && make dist/node/js/wasm/ && make dist/browser/js/wasm/",
     "build:ts-browser": "tsc --noEmit false --module es2020 --target es2020 --outDir dist/browser",
     "build:ts-node": "tsc --noEmit false --outDir dist/node",

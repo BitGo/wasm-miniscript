@@ -1,0 +1,23 @@
+// BitGo coin names (from Network::from_coin_name in src/networks.rs)
+export type CoinName =
+  | "btc"
+  | "tbtc"
+  | "tbtc4"
+  | "tbtcsig"
+  | "tbtcbgsig"
+  | "bch"
+  | "tbch"
+  | "bcha"
+  | "tbcha"
+  | "btg"
+  | "tbtg"
+  | "bsv"
+  | "tbsv"
+  | "dash"
+  | "tdash"
+  | "doge"
+  | "tdoge"
+  | "ltc"
+  | "tltc"
+  | "zec"
+  | "tzec";

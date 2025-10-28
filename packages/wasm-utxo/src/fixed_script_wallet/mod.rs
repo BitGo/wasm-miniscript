@@ -1,5 +1,6 @@
 /// This module contains code for the BitGo Fixed Script Wallets.
 /// These are not based on descriptors.
+mod bip32interface;
 mod wallet_keys;
 
 pub mod wallet_scripts;
@@ -17,11 +18,11 @@ use crate::try_from_js_value::TryFromJsValue;
 use crate::utxolib_compat::Network;
 
 #[wasm_bindgen]
-pub struct FixedScriptWallet;
+pub struct FixedScriptWalletNamespace;
 
 #[wasm_bindgen]
-impl FixedScriptWallet {
-    #[wasm_bindgen(js_name = outputScript)]
+impl FixedScriptWalletNamespace {
+    #[wasm_bindgen]
     pub fn output_script(
         keys: JsValue,
         chain: u32,
@@ -30,12 +31,12 @@ impl FixedScriptWallet {
         let chain = Chain::try_from(chain)
             .map_err(|e| WasmMiniscriptError::new(&format!("Invalid chain: {}", e)))?;
 
-        let xpubs = xpub_triple_from_jsvalue(&keys)?;
-        let scripts = WalletScripts::from_xpubs(&xpubs, chain, index);
+        let wallet_keys = RootWalletKeys::from_jsvalue(&keys)?;
+        let scripts = WalletScripts::from_wallet_keys(&wallet_keys, chain, index);
         Ok(scripts.output_script().to_bytes())
     }
 
-    #[wasm_bindgen(js_name = address)]
+    #[wasm_bindgen]
     pub fn address(
         keys: JsValue,
         chain: u32,
@@ -43,10 +44,10 @@ impl FixedScriptWallet {
         network: JsValue,
     ) -> Result<String, WasmMiniscriptError> {
         let network = Network::try_from_js_value(&network)?;
-        let xpubs = xpub_triple_from_jsvalue(&keys)?;
+        let wallet_keys = RootWalletKeys::from_jsvalue(&keys)?;
         let chain = Chain::try_from(chain)
             .map_err(|e| WasmMiniscriptError::new(&format!("Invalid chain: {}", e)))?;
-        let scripts = WalletScripts::from_xpubs(&xpubs, chain, index);
+        let scripts = WalletScripts::from_wallet_keys(&wallet_keys, chain, index);
         let script = scripts.output_script();
         let address = crate::address::utxolib_compat::from_output_script_with_network(
             &script,

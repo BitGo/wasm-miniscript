@@ -7,6 +7,7 @@ use super::wallet_scripts::{Chain, WalletScripts};
 use crate::bitcoin::bip32::{DerivationPath, Fingerprint, Xpriv, Xpub};
 use crate::bitcoin::psbt::{Input as PsbtInput, Output as PsbtOutput, Psbt};
 use crate::bitcoin::{Transaction, TxIn, TxOut};
+use crate::RootWalletKeys;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
@@ -31,7 +32,8 @@ pub fn get_test_wallet_keys(seed: &str) -> XpubTriple {
 /// Create a PSBT output for an external wallet (different keys)
 pub fn create_external_output(seed: &str) -> PsbtOutput {
     let xpubs = get_test_wallet_keys(seed);
-    let _scripts = WalletScripts::from_xpubs(&xpubs, Chain::P2wshExternal, 0);
+    let _scripts =
+        WalletScripts::from_wallet_keys(&RootWalletKeys::new(xpubs), Chain::P2wshExternal, 0);
     PsbtOutput {
         bip32_derivation: BTreeMap::new(),
         // witness_script: scripts.witness_script,

@@ -15,6 +15,7 @@ pub use singlesig::{build_p2pk_script, ScriptP2shP2pk};
 use crate::bitcoin::bip32::{ChildNumber, DerivationPath};
 use crate::bitcoin::ScriptBuf;
 use crate::fixed_script_wallet::wallet_keys::{to_pub_triple, PubTriple, XpubTriple};
+use crate::RootWalletKeys;
 use std::convert::TryFrom;
 use std::str::FromStr;
 
@@ -80,11 +81,15 @@ impl WalletScripts {
         }
     }
 
-    pub fn from_xpubs(xpubs: &XpubTriple, chain: Chain, index: u32) -> WalletScripts {
-        let ctx = crate::bitcoin::secp256k1::Secp256k1::new();
-        let derived_keys = derive_xpubs(xpubs, &ctx, chain, index);
-        let pub_triple = to_pub_triple(&derived_keys);
-        WalletScripts::new(&pub_triple, chain)
+    pub fn from_wallet_keys(
+        wallet_keys: &RootWalletKeys,
+        chain: Chain,
+        index: u32,
+    ) -> WalletScripts {
+        let derived_keys = wallet_keys
+            .derive_for_chain_and_index(chain as u32, index)
+            .unwrap();
+        WalletScripts::new(&to_pub_triple(&derived_keys), chain)
     }
 
     pub fn output_script(&self) -> ScriptBuf {
@@ -194,15 +199,14 @@ mod tests {
     use super::*;
     use crate::fixed_script_wallet::test_utils::fixtures;
     use crate::fixed_script_wallet::wallet_keys::tests::get_test_wallet_keys;
-    use crate::fixed_script_wallet::wallet_keys::XpubTriple;
 
-    fn assert_output_script(keys: &XpubTriple, chain: Chain, expected_script: &str) {
-        let scripts = WalletScripts::from_xpubs(keys, chain, 0);
+    fn assert_output_script(keys: &RootWalletKeys, chain: Chain, expected_script: &str) {
+        let scripts = WalletScripts::from_wallet_keys(keys, chain, 0);
         let output_script = scripts.output_script();
         assert_eq!(output_script.to_hex_string(), expected_script);
     }
 
-    fn test_build_multisig_chain_with(keys: &XpubTriple, chain: Chain) {
+    fn test_build_multisig_chain_with(keys: &RootWalletKeys, chain: Chain) {
         match chain {
             Chain::P2shExternal => {
                 assert_output_script(
@@ -295,20 +299,6 @@ mod tests {
         Ok((chain, index))
     }
 
-    fn xprvs_to_xpubs(xprvs: &[crate::bitcoin::bip32::Xpriv]) -> Result<XpubTriple, String> {
-        if xprvs.len() != 3 {
-            return Err(format!("Expected 3 xprvs, got {}", xprvs.len()));
-        }
-        let secp = crate::bitcoin::secp256k1::Secp256k1::new();
-        let xpubs: Vec<Xpub> = xprvs
-            .iter()
-            .map(|xprv| Xpub::from_priv(&secp, xprv))
-            .collect();
-        xpubs
-            .try_into()
-            .map_err(|_| "Failed to convert to XpubTriple".to_string())
-    }
-
     fn parse_fixture_paths(
         fixture_input: &fixtures::PsbtInputFixture,
     ) -> Result<(Chain, u32), String> {
@@ -377,14 +367,22 @@ mod tests {
         let fixture = fixtures::load_psbt_fixture("bitcoin", fixtures::SignatureState::Fullsigned)
             .expect("Failed to load fixture");
         let xprvs = fixtures::parse_wallet_keys(&fixture).expect("Failed to parse wallet keys");
-        let xpubs = xprvs_to_xpubs(&xprvs).expect("Failed to convert to xpubs");
+        let secp = crate::bitcoin::secp256k1::Secp256k1::new();
+        let wallet_keys = RootWalletKeys::new(
+            xprvs
+                .iter()
+                .map(|x| Xpub::from_priv(&secp, x))
+                .collect::<Vec<_>>()
+                .try_into()
+                .expect("Failed to convert to XpubTriple"),
+        );
 
         let (input_index, input_fixture) = find_input_with_script_type(&fixture, script_type)
             .expect("Failed to find input with script type");
 
         let (chain, index) =
             parse_fixture_paths(input_fixture).expect("Failed to parse fixture paths");
-        let scripts = WalletScripts::from_xpubs(&xpubs, chain, index);
+        let scripts = WalletScripts::from_wallet_keys(&wallet_keys, chain, index);
 
         // Use the new helper methods for validation
         match (scripts, input_fixture) {
