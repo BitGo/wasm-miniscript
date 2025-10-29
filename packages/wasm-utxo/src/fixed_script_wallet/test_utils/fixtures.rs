@@ -40,6 +40,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::Network;
+
 // Basic helper types (no dependencies on other types in this file)
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -59,7 +61,7 @@ pub struct TxInput {
 pub struct TxOutput {
     pub script: String,
     pub value: String,
-    pub address: String,
+    pub address: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -126,8 +128,11 @@ pub struct TapTree {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct P2shInput {
-    pub unknown_key_vals: Vec<UnknownKeyVal>,
-    pub non_witness_utxo: String,
+    pub unknown_key_vals: Option<Vec<UnknownKeyVal>>,
+    /// Absent for PSBT-LITE format
+    pub non_witness_utxo: Option<String>,
+    /// Present for PSBT-LITE format
+    pub witness_utxo: Option<WitnessUtxo>,
     pub sighash_type: u32,
     pub bip32_derivation: Vec<Bip32Derivation>,
     pub redeem_script: String,
@@ -138,7 +143,7 @@ pub struct P2shInput {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct P2shP2wshInput {
-    pub unknown_key_vals: Vec<UnknownKeyVal>,
+    pub unknown_key_vals: Option<Vec<UnknownKeyVal>>,
     pub witness_utxo: WitnessUtxo,
     pub sighash_type: u32,
     pub bip32_derivation: Vec<Bip32Derivation>,
@@ -151,7 +156,7 @@ pub struct P2shP2wshInput {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct P2wshInput {
-    pub unknown_key_vals: Vec<UnknownKeyVal>,
+    pub unknown_key_vals: Option<Vec<UnknownKeyVal>>,
     pub witness_utxo: WitnessUtxo,
     pub sighash_type: u32,
     pub bip32_derivation: Vec<Bip32Derivation>,
@@ -163,7 +168,7 @@ pub struct P2wshInput {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct P2trScriptPathInput {
-    pub unknown_key_vals: Vec<UnknownKeyVal>,
+    pub unknown_key_vals: Option<Vec<UnknownKeyVal>>,
     pub witness_utxo: WitnessUtxo,
     pub sighash_type: u32,
     pub tap_leaf_script: Vec<TapLeafScript>,
@@ -175,7 +180,7 @@ pub struct P2trScriptPathInput {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct P2trMusig2KeyPathInput {
-    pub unknown_key_vals: Vec<UnknownKeyVal>,
+    pub unknown_key_vals: Option<Vec<UnknownKeyVal>>,
     pub witness_utxo: WitnessUtxo,
     pub sighash_type: u32,
     pub tap_internal_key: String,
@@ -186,9 +191,12 @@ pub struct P2trMusig2KeyPathInput {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct P2shP2pkInput {
-    pub unknown_key_vals: Vec<UnknownKeyVal>,
+    pub unknown_key_vals: Option<Vec<UnknownKeyVal>>,
     pub redeem_script: String,
-    pub non_witness_utxo: String,
+    /// Skipped for PSBT-LITE format
+    pub non_witness_utxo: Option<String>,
+    /// Present for PSBT-LITE format
+    pub witness_utxo: Option<WitnessUtxo>,
     pub sighash_type: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub partial_sig: Vec<PartialSig>,
@@ -220,7 +228,7 @@ pub enum PsbtInputFixture {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PsbtOutputFixture {
-    pub unknown_key_vals: Vec<UnknownKeyVal>,
+    pub unknown_key_vals: Option<Vec<UnknownKeyVal>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bip32_derivation: Option<Vec<Bip32Derivation>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -307,6 +315,21 @@ impl SignatureState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TxFormat {
+    Psbt,
+    PsbtLite,
+}
+
+impl TxFormat {
+    fn as_str(&self) -> &'static str {
+        match self {
+            TxFormat::Psbt => "psbt",
+            TxFormat::PsbtLite => "psbt-lite",
+        }
+    }
+}
+
 /// Load a PSBT fixture from a JSON file
 ///
 /// # Arguments
@@ -320,15 +343,43 @@ impl SignatureState {
 /// let fixture = load_psbt_fixture("bitcoin", SignatureState::Fullsigned)
 ///     .expect("Failed to load fixture");
 /// ```
+pub fn load_psbt_fixture_with_format(
+    network_name: &str,
+    signature_state: SignatureState,
+    tx_format: TxFormat,
+) -> Result<PsbtFixture, Box<dyn std::error::Error>> {
+    let filename = format!(
+        "{}.{}.{}.json",
+        tx_format.as_str(),
+        network_name,
+        signature_state.as_str()
+    );
+    let path = format!("fixed-script/{}", filename);
+    let contents =
+        load_fixture(&path).unwrap_or_else(|_| panic!("Failed to load fixture: {}", filename));
+    let fixture: PsbtFixture = serde_json::from_str(&contents)?;
+    Ok(fixture)
+}
+
 pub fn load_psbt_fixture(
     network_name: &str,
     signature_state: SignatureState,
 ) -> Result<PsbtFixture, Box<dyn std::error::Error>> {
-    let filename = format!("psbt.{}.{}.json", network_name, signature_state.as_str());
-    let path = format!("fixed-script/{}", filename);
-    let contents = load_fixture(&path)?;
-    let fixture: PsbtFixture = serde_json::from_str(&contents)?;
-    Ok(fixture)
+    load_psbt_fixture_with_format(network_name, signature_state, TxFormat::Psbt)
+}
+
+pub fn load_psbt_lite_fixture(
+    network_name: &str,
+    signature_state: SignatureState,
+) -> Result<PsbtFixture, Box<dyn std::error::Error>> {
+    load_psbt_fixture_with_format(network_name, signature_state, TxFormat::PsbtLite)
+}
+
+pub fn load_psbt_fixture_with_network(
+    network: Network,
+    signature_state: SignatureState,
+) -> Result<PsbtFixture, Box<dyn std::error::Error>> {
+    load_psbt_fixture(network.to_utxolib_name(), signature_state)
 }
 
 /// Load a PSBT fixture from JSON string
@@ -398,13 +449,9 @@ fn assert_hex_eq(generated: &str, expected: &str, field_name: &str) -> Result<()
     }
 }
 
-/// Validates sighash type (should be 0 or 1)
-fn validate_sighash_type(sighash_type: u32) -> Result<(), String> {
-    if sighash_type != 0 && sighash_type != 1 {
-        Err(format!("Unexpected sighash type: {}", sighash_type))
-    } else {
-        Ok(())
-    }
+/// Validates sighash type for the given network
+fn validate_sighash_type(sighash_type: u32, network: Network) -> Result<(), String> {
+    crate::bitgo_psbt::validate_sighash_type(sighash_type, network)
 }
 
 /// Validates output script from witness UTXO against generated script
@@ -439,6 +486,7 @@ impl P2shInput {
         &self,
         scripts: &crate::fixed_script_wallet::wallet_scripts::ScriptP2sh,
         output_script: &str,
+        network: Network,
     ) -> Result<(), String> {
         // Compare output script
         let generated_output = scripts.redeem_script.to_p2sh().to_hex_string();
@@ -448,7 +496,7 @@ impl P2shInput {
         let redeem_script_hex = scripts.redeem_script.to_hex_string();
         assert_hex_eq(&redeem_script_hex, &self.redeem_script, "Redeem script")?;
 
-        validate_sighash_type(self.sighash_type)
+        validate_sighash_type(self.sighash_type, network)
     }
 }
 
@@ -458,6 +506,7 @@ impl P2shP2wshInput {
         &self,
         scripts: &crate::fixed_script_wallet::wallet_scripts::ScriptP2shP2wsh,
         output_script: &str,
+        network: Network,
     ) -> Result<(), String> {
         // Compare output script
         let generated_output = scripts.redeem_script.to_p2sh().to_hex_string();
@@ -471,7 +520,7 @@ impl P2shP2wshInput {
         let witness_script_hex = scripts.witness_script.to_hex_string();
         assert_hex_eq(&witness_script_hex, &self.witness_script, "Witness script")?;
 
-        validate_sighash_type(self.sighash_type)
+        validate_sighash_type(self.sighash_type, network)
     }
 }
 
@@ -481,6 +530,7 @@ impl P2wshInput {
         &self,
         scripts: &crate::fixed_script_wallet::wallet_scripts::ScriptP2wsh,
         output_script: &str,
+        network: Network,
     ) -> Result<(), String> {
         // Compare output script
         let generated_output = scripts.witness_script.to_p2wsh().to_hex_string();
@@ -490,7 +540,7 @@ impl P2wshInput {
         let witness_script_hex = scripts.witness_script.to_hex_string();
         assert_hex_eq(&witness_script_hex, &self.witness_script, "Witness script")?;
 
-        validate_sighash_type(self.sighash_type)
+        validate_sighash_type(self.sighash_type, network)
     }
 }
 
@@ -499,6 +549,7 @@ impl P2trScriptPathInput {
     pub fn assert_matches_spend_info(
         &self,
         spend_info: &crate::bitcoin::taproot::TaprootSpendInfo,
+        network: Network,
     ) -> Result<(), String> {
         use crate::bitcoin::hashes::hex::FromHex;
         use crate::bitcoin::ScriptBuf;
@@ -536,7 +587,7 @@ impl P2trScriptPathInput {
             }
         }
 
-        validate_sighash_type(self.sighash_type)
+        validate_sighash_type(self.sighash_type, network)
     }
 
     /// Validates that the generated WalletScripts matches this fixture
@@ -544,9 +595,10 @@ impl P2trScriptPathInput {
     pub fn assert_matches_wallet_scripts(
         &self,
         scripts: &crate::fixed_script_wallet::wallet_scripts::ScriptP2tr,
+        network: Network,
     ) -> Result<(), String> {
         validate_p2tr_wallet_scripts(&self.witness_utxo.script, scripts, |spend_info| {
-            self.assert_matches_spend_info(spend_info)
+            self.assert_matches_spend_info(spend_info, network)
         })
     }
 }
@@ -556,6 +608,7 @@ impl P2trMusig2KeyPathInput {
     pub fn assert_matches_spend_info(
         &self,
         spend_info: &crate::bitcoin::taproot::TaprootSpendInfo,
+        network: Network,
     ) -> Result<(), String> {
         // Compare internal key
         let internal_key_hex = hex::encode(spend_info.internal_key().serialize());
@@ -569,7 +622,7 @@ impl P2trMusig2KeyPathInput {
         let merkle_root_hex = hex::encode(merkle_root_bytes);
         assert_hex_eq(&merkle_root_hex, &self.tap_merkle_root, "Merkle root")?;
 
-        validate_sighash_type(self.sighash_type)
+        validate_sighash_type(self.sighash_type, network)
     }
 
     /// Validates that the generated WalletScripts matches this fixture
@@ -577,11 +630,116 @@ impl P2trMusig2KeyPathInput {
     pub fn assert_matches_wallet_scripts(
         &self,
         scripts: &crate::fixed_script_wallet::wallet_scripts::ScriptP2tr,
+        network: Network,
     ) -> Result<(), String> {
         validate_p2tr_wallet_scripts(&self.witness_utxo.script, scripts, |spend_info| {
-            self.assert_matches_spend_info(spend_info)
+            self.assert_matches_spend_info(spend_info, network)
         })
     }
+}
+
+/// Script type for PSBT input validation
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScriptType {
+    P2sh,
+    P2shP2wsh,
+    P2wsh,
+    P2tr,
+    P2trMusig2,
+    TaprootKeypath,
+}
+
+impl ScriptType {
+    /// Returns the string representation used in fixtures
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ScriptType::P2sh => "p2sh",
+            ScriptType::P2shP2wsh => "p2shP2wsh",
+            ScriptType::P2wsh => "p2wsh",
+            ScriptType::P2tr => "p2tr",
+            ScriptType::P2trMusig2 => "p2trMusig2",
+            ScriptType::TaprootKeypath => "taprootKeypath",
+        }
+    }
+
+    /// Checks if the given fixture input matches this script type
+    pub fn matches_fixture(&self, fixture: &PsbtInputFixture) -> bool {
+        matches!(
+            (self, fixture),
+            (ScriptType::P2sh, PsbtInputFixture::P2sh(_))
+                | (ScriptType::P2shP2wsh, PsbtInputFixture::P2shP2wsh(_))
+                | (ScriptType::P2wsh, PsbtInputFixture::P2wsh(_))
+                | (ScriptType::P2tr, PsbtInputFixture::P2trLegacy(_))
+                | (
+                    ScriptType::P2trMusig2,
+                    PsbtInputFixture::P2trMusig2ScriptPath(_)
+                )
+                | (
+                    ScriptType::TaprootKeypath,
+                    PsbtInputFixture::P2trMusig2KeyPath(_)
+                )
+        )
+    }
+
+    pub fn is_segwit(&self) -> bool {
+        matches!(self, ScriptType::P2shP2wsh | ScriptType::P2wsh)
+    }
+
+    pub fn is_taproot(&self) -> bool {
+        matches!(
+            self,
+            ScriptType::P2tr | ScriptType::P2trMusig2 | ScriptType::TaprootKeypath
+        )
+    }
+
+    /// Checks if this script type is supported by the given network's output script support
+    pub fn is_supported_by(&self, support: &crate::address::networks::OutputScriptSupport) -> bool {
+        // P2sh is always supported (legacy)
+        if matches!(self, ScriptType::P2sh) {
+            return true;
+        }
+
+        // SegWit scripts require segwit support
+        if self.is_segwit() {
+            return support.segwit;
+        }
+
+        // Taproot scripts require taproot support (which implies segwit)
+        if self.is_taproot() {
+            return support.taproot;
+        }
+
+        // Default to supported for any other types
+        true
+    }
+}
+
+/// Macro for testing PSBT fixtures across all mainnet networks (excluding testnets and BSV)
+///
+/// This macro generates test cases for mainnet networks only: Bitcoin, BitcoinCash, Ecash,
+/// BitcoinGold, Dash, Dogecoin, Litecoin, and Zcash.
+///
+/// # Example
+/// ```rust,no_run
+/// test_psbt_fixtures!(test_my_feature, network, {
+///     let fixture = load_psbt_fixture_with_network(network, SignatureState::Fullsigned).unwrap();
+///     // ... test logic here
+/// });
+/// ```
+#[macro_export]
+macro_rules! test_psbt_fixtures {
+    ($test_name:ident, $network:ident, $body:block) => {
+        #[rstest::rstest]
+        #[case::bitcoin($crate::Network::Bitcoin)]
+        #[case::bitcoin_cash($crate::Network::BitcoinCash)]
+        #[case::ecash($crate::Network::Ecash)]
+        #[case::bitcoin_gold($crate::Network::BitcoinGold)]
+        #[case::dash($crate::Network::Dash)]
+        #[case::dogecoin($crate::Network::Dogecoin)]
+        #[case::litecoin($crate::Network::Litecoin)]
+        #[case::zcash($crate::Network::Zcash)]
+        fn $test_name(#[case] $network: $crate::Network) $body
+    };
 }
 
 // Tests

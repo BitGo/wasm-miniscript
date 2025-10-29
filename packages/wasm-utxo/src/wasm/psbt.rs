@@ -173,7 +173,9 @@ impl Clone for WrapPsbt {
 
 #[cfg(test)]
 mod tests {
+    use crate::error::WasmUtxoError;
     use crate::wasm::psbt::SingleKeySigner;
+    use crate::Network;
     use base64::prelude::*;
     use miniscript::bitcoin::bip32::{DerivationPath, Fingerprint, KeySource};
     use miniscript::bitcoin::psbt::{SigningKeys, SigningKeysMap};
@@ -183,9 +185,11 @@ mod tests {
     use miniscript::{DefiniteDescriptorKey, Descriptor, DescriptorPublicKey, ToPublicKey};
     use std::str::FromStr;
 
-    fn psbt_from_base64(s: &str) -> Psbt {
-        let psbt = BASE64_STANDARD.decode(s.as_bytes()).unwrap();
-        Psbt::deserialize(&psbt).unwrap()
+    fn psbt_from_base64(s: &str) -> Result<Psbt, WasmUtxoError> {
+        let psbt = BASE64_STANDARD
+            .decode(s.as_bytes())
+            .map_err(|_| WasmUtxoError::new("Invalid base64"))?;
+        Psbt::deserialize(&psbt).map_err(|e| WasmUtxoError::new(&format!("Invalid PSBT: {}", e)))
     }
 
     #[test]
@@ -193,7 +197,7 @@ mod tests {
         let desc = "tr(039ab0771c5f88913208a26f81ab8223e98d25176e4648a5a2bb8ff79cf1c5198b,pk(039ab0771c5f88913208a26f81ab8223e98d25176e4648a5a2bb8ff79cf1c5198b))";
         let desc = Descriptor::<DefiniteDescriptorKey>::from_str(desc).unwrap();
         let psbt = "cHNidP8BAKYCAAAAAgEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAAD9////AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAP3///8CgBoGAAAAAAAWABRTtvjcap+5t7odMosMnHl97YJClYAaBgAAAAAAIlEg1S2GuUvFU+Ve4XFLV65ffhuYsGeDkpaER6lQFjONAmEAAAAAAAEBK0BCDwAAAAAAIlEg1S2GuUvFU+Ve4XFLV65ffhuYsGeDkpaER6lQFjONAmEAAQErQEIPAAAAAAAiUSDVLYa5S8VT5V7hcUtXrl9+G5iwZ4OSloRHqVAWM40CYQAAAA==";
-        let mut psbt = psbt_from_base64(psbt);
+        let mut psbt = psbt_from_base64(psbt).unwrap();
         psbt.update_input_with_descriptor(0, &desc).unwrap();
         println!("{:?}", psbt.inputs[0].tap_key_origins);
         let prv =
@@ -223,8 +227,17 @@ mod tests {
         let d = "tr(xpub661MyMwAqRbcEv1i36otFUwWZRcQBJHjdCoQvqykteW4sMHP3m4h9TzvPhK9q7rtkkWMMTJB4jFxCgVki9GwB9GvfHf366dpXDAaHHHdad2/*,{pk(xpub661MyMwAqRbcFod8uqcC3G2jub4McRVKZsZrvWZXAUFBjeuyMT2UqDFkw3TAUebQRAE7XQKFFhvLRW2mWvmKC2KzNuCkzVkFucWapGqnkXj/*),pk(xpub661MyMwAqRbcFVAMsxk7PkfGh66U9K9qWh2dvS5s4kL4JaDHdZdBbb4CbzQxZMC2MAUcKZudSk86RxeaTQctKa6tpSCPEkKGYfMEFDKWJu9/*)})";
         let desc = Descriptor::<DescriptorPublicKey>::from_str(d).unwrap();
         let psbt = "cHNidP8BAKYCAAAAAgEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAAD9////AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAP3///8CgBoGAAAAAAAWABRTtvjcap+5t7odMosMnHl97YJClYAaBgAAAAAAIlEgBBlsh6bt3RStSy0egEjFHML8bVhqFYO8knG5OLcA/zcAAAAAAAEBK0BCDwAAAAAAIlEgBBlsh6bt3RStSy0egEjFHML8bVhqFYO8knG5OLcA/zcAAQErQEIPAAAAAAAiUSDFpFC16pT0pXIHKzV7teFiXul3DtlyYj9DdCpF1CHVQAAAAA==";
-        let mut psbt = psbt_from_base64(psbt);
+        let mut psbt = psbt_from_base64(psbt).unwrap();
         psbt.update_input_with_descriptor(0, &desc.at_derivation_index(0).unwrap())
             .unwrap();
+    }
+
+    // Compile-time check to ensure the macro stays in sync with Network::ALL
+    #[test]
+    fn test_all_networks_macro_is_complete() {
+        const _: () = assert!(
+            Network::ALL.len() == 21,
+            "test_all_networks! macro is out of sync with Network::ALL"
+        );
     }
 }

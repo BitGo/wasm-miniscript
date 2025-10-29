@@ -111,7 +111,13 @@ mod tests {
             .expect("Failed to find p2shP2pk input index");
         let vout = fixture.inputs[input_index].index as usize;
 
-        let tx_bytes = hex::decode(&p2shp2pk_input.non_witness_utxo).expect("Failed to decode hex");
+        let tx_bytes = hex::decode(
+            p2shp2pk_input
+                .non_witness_utxo
+                .as_ref()
+                .expect("expected non-witness utxo for legacy inputs"),
+        )
+        .expect("Failed to decode hex");
         let prev_tx: Transaction = Decodable::consensus_decode(&mut tx_bytes.as_slice())
             .expect("Failed to decode non-witness utxo");
         let expected_output_script = prev_tx.output[vout].script_pubkey.to_hex_string();
