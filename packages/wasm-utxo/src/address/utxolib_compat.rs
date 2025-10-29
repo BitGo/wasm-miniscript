@@ -17,18 +17,23 @@ pub struct CashAddr {
     pub script_hash: u32,
 }
 
-pub struct Network {
+/// This maps to the structure of `utxolib.Network` so that we can use it for address encoding/decoding.
+/// We also use it to infer the output script support for the network.
+///
+/// We cannot precisely map it to the proper `networks::Network` enum because certain
+/// different networks are structurally identical (all bitcoin testnets).
+pub struct UtxolibNetwork {
     pub pub_key_hash: u32,
     pub script_hash: u32,
     pub cash_addr: Option<CashAddr>,
     pub bech32: Option<String>,
 }
 
-impl Network {
-    /// Parse a Network object from a JavaScript value
+impl UtxolibNetwork {
+    /// Parse a UtxolibNetwork object from a JavaScript value
     pub fn from_js_value(js_network: &JsValue) -> Result<Self> {
         use crate::try_from_js_value::TryFromJsValue;
-        Network::try_from_js_value(js_network)
+        UtxolibNetwork::try_from_js_value(js_network)
             .map_err(|e| AddressError::InvalidAddress(e.to_string()))
     }
     pub fn output_script_support(&self) -> OutputScriptSupport {
@@ -46,10 +51,10 @@ impl Network {
     }
 }
 
-/// Convert output script to address string using a utxolib Network object
+/// Convert output script to address string using a utxolib UtxolibNetwork object
 pub fn from_output_script_with_network(
     script: &Script,
-    network: &Network,
+    network: &UtxolibNetwork,
     format: AddressFormat,
 ) -> Result<String> {
     network.output_script_support().assert_support(script)?;
@@ -94,8 +99,8 @@ pub fn from_output_script_with_network(
     }
 }
 
-/// Convert address string to output script using a utxolib Network object
-pub fn to_output_script_with_network(address: &str, network: &Network) -> Result<ScriptBuf> {
+/// Convert address string to output script using a utxolib UtxolibNetwork object
+pub fn to_output_script_with_network(address: &str, network: &UtxolibNetwork) -> Result<ScriptBuf> {
     use crate::address::AddressCodec;
     use crate::bitcoin::hashes::Hash;
     use crate::bitcoin::{PubkeyHash, ScriptHash};
@@ -148,7 +153,7 @@ impl UtxolibCompatNamespace {
     ///
     /// # Arguments
     /// * `script` - The output script as a byte array
-    /// * `network` - The utxolib Network object from JavaScript
+    /// * `network` - The UtxolibNetwork object from JavaScript
     /// * `format` - Optional address format: "default" or "cashaddr" (only applicable for Bitcoin Cash and eCash)
     #[wasm_bindgen]
     pub fn from_output_script(
@@ -156,8 +161,8 @@ impl UtxolibCompatNamespace {
         network: JsValue,
         format: Option<String>,
     ) -> std::result::Result<String, JsValue> {
-        let network =
-            Network::from_js_value(&network).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let network = UtxolibNetwork::from_js_value(&network)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let script_obj = Script::from_bytes(script);
 
@@ -173,7 +178,7 @@ impl UtxolibCompatNamespace {
     ///
     /// # Arguments
     /// * `address` - The address string
-    /// * `network` - The utxolib Network object from JavaScript
+    /// * `network` - The UtxolibNetwork object from JavaScript
     /// * `format` - Optional address format (currently unused for decoding as all formats are accepted)
     #[wasm_bindgen]
     pub fn to_output_script(
@@ -181,8 +186,8 @@ impl UtxolibCompatNamespace {
         network: JsValue,
         format: Option<String>,
     ) -> std::result::Result<Vec<u8>, JsValue> {
-        let network =
-            Network::from_js_value(&network).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let network = UtxolibNetwork::from_js_value(&network)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         // Validate format parameter even though we don't use it for decoding
         if let Some(fmt) = format {
