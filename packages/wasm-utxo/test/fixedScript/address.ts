@@ -40,6 +40,11 @@ function runTest(
   describe(`address for network ${utxolib.getNetworkName(network)}, derivationPrefixes=${Boolean(derivationPrefixes)}`, function () {
     const keyTriple = utxolib.testutil.getKeyTriple("wasm");
 
+    const rootWalletKeys = new utxolib.bitgo.RootWalletKeys(
+      keyTriple.map((k) => k.neutered()) as Triple<utxolib.BIP32Interface>,
+      derivationPrefixes,
+    );
+
     const supportedChainCodes = utxolib.bitgo.chainCodes.filter((chainCode) => {
       const scriptType = utxolib.bitgo.outputScripts.scriptTypeForChain(chainCode);
       return utxolib.bitgo.outputScripts.isSupportedScriptType(network, scriptType);
@@ -48,10 +53,6 @@ function runTest(
     it(`can recreate address from wallet keys for chain codes ${supportedChainCodes.join(", ")}`, function () {
       for (const chainCode of supportedChainCodes) {
         for (let index = 0; index < 2; index++) {
-          const rootWalletKeys = new utxolib.bitgo.RootWalletKeys(
-            keyTriple.map((k) => k.neutered()) as Triple<utxolib.BIP32Interface>,
-            derivationPrefixes,
-          );
           const utxolibAddress = getAddressUtxoLib(
             rootWalletKeys,
             chainCode,
@@ -70,6 +71,37 @@ function runTest(
         }
       }
     });
+
+    const unsupportedChainCodes = utxolib.bitgo.chainCodes.filter((chainCode) => {
+      const scriptType = utxolib.bitgo.outputScripts.scriptTypeForChain(chainCode);
+      return !utxolib.bitgo.outputScripts.isSupportedScriptType(network, scriptType);
+    });
+
+    if (unsupportedChainCodes.length > 0) {
+      it(`throws error for unsupported chain codes ${unsupportedChainCodes.join(", ")}`, function () {
+        for (const chainCode of unsupportedChainCodes) {
+          const scriptType = utxolib.bitgo.outputScripts.scriptTypeForChain(chainCode);
+          assert.throws(
+            () => {
+              fixedScriptWallet.address(rootWalletKeys, chainCode, 0, network, addressFormat);
+            },
+            (error: Error) => {
+              const errorMessage = error.message.toLowerCase();
+              const isSegwitError = scriptType === "p2shP2wsh" || scriptType === "p2wsh";
+              const isTaprootError = scriptType === "p2tr" || scriptType === "p2trMusig2";
+
+              if (isSegwitError) {
+                return errorMessage.includes("does not support segwit");
+              } else if (isTaprootError) {
+                return errorMessage.includes("does not support taproot");
+              }
+              return false;
+            },
+            `Expected error for unsupported script type ${scriptType} on network ${utxolib.getNetworkName(network)}`,
+          );
+        }
+      });
+    }
   });
 }
 

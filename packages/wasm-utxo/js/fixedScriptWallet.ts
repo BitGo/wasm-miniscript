@@ -12,8 +12,13 @@ export type WalletKeys =
 /**
  * Create the output script for a given wallet keys and chain and index
  */
-export function outputScript(keys: WalletKeys, chain: number, index: number): Uint8Array {
-  return FixedScriptWalletNamespace.output_script(keys, chain, index);
+export function outputScript(
+  keys: WalletKeys,
+  chain: number,
+  index: number,
+  network: UtxolibNetwork,
+): Uint8Array {
+  return FixedScriptWalletNamespace.output_script(keys, chain, index, network);
 }
 
 /**

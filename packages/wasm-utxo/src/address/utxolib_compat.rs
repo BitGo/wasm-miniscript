@@ -3,7 +3,7 @@
 /// but for now we need to keep this compatibility layer.
 use wasm_bindgen::JsValue;
 
-use crate::address::networks::AddressFormat;
+use crate::address::networks::{AddressFormat, OutputScriptSupport};
 use crate::address::{bech32, cashaddr, Base58CheckCodec};
 use crate::bitcoin::{Script, ScriptBuf};
 
@@ -31,6 +31,19 @@ impl Network {
         Network::try_from_js_value(js_network)
             .map_err(|e| AddressError::InvalidAddress(e.to_string()))
     }
+    pub fn output_script_support(&self) -> OutputScriptSupport {
+        let segwit = self.bech32.is_some();
+
+        // In the context of this library, only bitcoin supports taproot
+        // See output_script_support in networks.rs for detailed references
+        let taproot = segwit
+            && self
+                .bech32
+                .as_ref()
+                .is_some_and(|bech32| bech32 == "bc" || bech32 == "tb");
+
+        OutputScriptSupport { segwit, taproot }
+    }
 }
 
 /// Convert output script to address string using a utxolib Network object
@@ -39,6 +52,8 @@ pub fn from_output_script_with_network(
     network: &Network,
     format: AddressFormat,
 ) -> Result<String> {
+    network.output_script_support().assert_support(script)?;
+
     // Handle cashaddr format if requested
     if matches!(format, AddressFormat::Cashaddr) {
         if let Some(ref cash_addr) = network.cash_addr {
