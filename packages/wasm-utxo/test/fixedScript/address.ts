@@ -2,7 +2,7 @@ import assert from "node:assert";
 
 import * as utxolib from "@bitgo/utxo-lib";
 
-import { fixedScriptWallet } from "../../js";
+import { AddressFormat, fixedScriptWallet } from "../../js";
 
 type Triple<T> = [T, T, T];
 
@@ -11,6 +11,7 @@ function getAddressUtxoLib(
   chain: number,
   index: number,
   network: utxolib.Network,
+  addressFormat: AddressFormat,
 ): string {
   if (!utxolib.bitgo.isChainCode(chain)) {
     throw new Error(`Invalid chain code: ${chain}`);
@@ -21,11 +22,21 @@ function getAddressUtxoLib(
     derived.publicKeys,
     utxolib.bitgo.outputScripts.scriptTypeForChain(chain),
   );
-  const address = utxolib.address.fromOutputScript(script.scriptPubKey, network);
+  const address = utxolib.addressFormat.fromOutputScriptWithFormat(
+    script.scriptPubKey,
+    addressFormat,
+    network,
+  );
   return address;
 }
 
-function runTest(network: utxolib.Network, derivationPrefixes?: Triple<string>) {
+function runTest(
+  network: utxolib.Network,
+  {
+    derivationPrefixes,
+    addressFormat,
+  }: { derivationPrefixes?: Triple<string>; addressFormat?: AddressFormat } = {},
+) {
   describe(`address for network ${utxolib.getNetworkName(network)}, derivationPrefixes=${Boolean(derivationPrefixes)}`, function () {
     const keyTriple = utxolib.testutil.getKeyTriple("wasm");
 
@@ -41,8 +52,20 @@ function runTest(network: utxolib.Network, derivationPrefixes?: Triple<string>) 
             keyTriple.map((k) => k.neutered()) as Triple<utxolib.BIP32Interface>,
             derivationPrefixes,
           );
-          const utxolibAddress = getAddressUtxoLib(rootWalletKeys, chainCode, index, network);
-          const wasmAddress = fixedScriptWallet.address(rootWalletKeys, chainCode, index, network);
+          const utxolibAddress = getAddressUtxoLib(
+            rootWalletKeys,
+            chainCode,
+            index,
+            network,
+            addressFormat ?? "default",
+          );
+          const wasmAddress = fixedScriptWallet.address(
+            rootWalletKeys,
+            chainCode,
+            index,
+            network,
+            addressFormat,
+          );
           assert.strictEqual(utxolibAddress, wasmAddress);
         }
       }
@@ -52,5 +75,11 @@ function runTest(network: utxolib.Network, derivationPrefixes?: Triple<string>) 
 
 utxolib.getNetworkList().forEach((network) => {
   runTest(network);
-  runTest(network, ["m/1/2", "m/0/0", "m/0/0"]);
+  runTest(network, { derivationPrefixes: ["m/1/2", "m/0/0", "m/0/0"] });
+  if (
+    utxolib.getMainnet(network) === utxolib.networks.bitcoincash ||
+    utxolib.getMainnet(network) === utxolib.networks.ecash
+  ) {
+    runTest(network, { addressFormat: "cashaddr" });
+  }
 });
