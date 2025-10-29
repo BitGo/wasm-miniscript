@@ -254,6 +254,7 @@ pub struct PsbtFixture {
     pub psbt_inputs: Vec<PsbtInputFixture>,
     pub outputs: Vec<TxOutput>,
     pub psbt_outputs: Vec<PsbtOutputFixture>,
+    pub extracted_transaction: Option<String>,
 }
 
 impl PsbtFixture {
