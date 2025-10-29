@@ -1,4 +1,4 @@
-use crate::address::utxolib_compat::{CashAddr, Network};
+use crate::address::utxolib_compat::{CashAddr, UtxolibNetwork};
 use crate::error::WasmMiniscriptError;
 use wasm_bindgen::JsValue;
 
@@ -119,14 +119,14 @@ pub(crate) fn get_buffer_field_vec(
     Ok(bytes)
 }
 
-impl TryFromJsValue for Network {
+impl TryFromJsValue for UtxolibNetwork {
     fn try_from_js_value(value: &JsValue) -> Result<Self, WasmMiniscriptError> {
         let pub_key_hash = get_field(value, "pubKeyHash")?;
         let script_hash = get_field(value, "scriptHash")?;
         let bech32 = get_field(value, "bech32")?;
         let cash_addr = get_field(value, "cashAddr")?;
 
-        Ok(Network {
+        Ok(UtxolibNetwork {
             pub_key_hash,
             script_hash,
             cash_addr,

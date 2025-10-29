@@ -71,12 +71,106 @@ impl AddressFormat {
     }
 }
 
+pub struct OutputScriptSupport {
+    pub segwit: bool,
+    pub taproot: bool,
+}
+
+impl OutputScriptSupport {
+    pub(crate) fn assert_legacy(&self) -> Result<()> {
+        // all coins support legacy scripts
+        Ok(())
+    }
+
+    pub(crate) fn assert_segwit(&self) -> Result<()> {
+        if !self.segwit {
+            return Err(AddressError::UnsupportedScriptType(
+                "Network does not support segwit".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn assert_taproot(&self) -> Result<()> {
+        if !self.taproot {
+            return Err(AddressError::UnsupportedScriptType(
+                "Network does not support taproot".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn assert_support(&self, script: &Script) -> Result<()> {
+        match script.witness_version() {
+            None => {
+                // all coins support legacy scripts
+            }
+            Some(WitnessVersion::V0) => {
+                self.assert_segwit()?;
+            }
+            Some(WitnessVersion::V1) => {
+                self.assert_taproot()?;
+            }
+            _ => {
+                return Err(AddressError::UnsupportedScriptType(
+                    "Unsupported witness version".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Network {
+    pub fn output_script_support(&self) -> OutputScriptSupport {
+        // SegWit support:
+        // Bitcoin: SegWit activated August 24, 2017 at block 481,824
+        // - Consensus rules: https://github.com/bitcoin/bitcoin/blob/v28.0/src/consensus/tx_verify.cpp
+        // - Witness validation: https://github.com/bitcoin/bitcoin/blob/v28.0/src/script/interpreter.cpp
+        // - BIP141 (SegWit): https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki
+        // - BIP143 (Signature verification): https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki
+        // - BIP144 (P2P changes): https://github.com/bitcoin/bips/blob/master/bip-0144.mediawiki
+        //
+        // Litecoin: SegWit activated May 10, 2017 at block 1,201,536
+        // - Consensus implementation: https://github.com/litecoin-project/litecoin/blob/v0.21.4/src/consensus/tx_verify.cpp
+        // - Script interpreter: https://github.com/litecoin-project/litecoin/blob/v0.21.4/src/script/interpreter.cpp
+        //
+        // Bitcoin Gold: Launched with SegWit support in October 2017
+        // - Implementation: https://github.com/BTCGPU/BTCGPU/blob/v0.17.3/src/consensus/tx_verify.cpp
+        let segwit = matches!(
+            self.mainnet(),
+            Network::Bitcoin | Network::Litecoin | Network::BitcoinGold
+        );
+
+        // Taproot support:
+        // Bitcoin: Taproot activated November 14, 2021 at block 709,632
+        // - Taproot validation: https://github.com/bitcoin/bitcoin/blob/v28.0/src/script/interpreter.cpp
+        //   (see VerifyWitnessProgram, WITNESS_V1_TAPROOT)
+        // - Schnorr signature verification: https://github.com/bitcoin/bitcoin/blob/v28.0/src/pubkey.cpp
+        //   (see XOnlyPubKey::VerifySchnorr)
+        // - Deployment params: https://github.com/bitcoin/bitcoin/blob/v28.0/src/kernel/chainparams.cpp
+        //   (see Consensus::DeploymentPos::DEPLOYMENT_TAPROOT)
+        // - BIP340 (Schnorr signatures): https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki
+        // - BIP341 (Taproot): https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki
+        // - BIP342 (Tapscript): https://github.com/bitcoin/bips/blob/master/bip-0342.mediawiki
+        //
+        // Litecoin: has apparent taproot support, but we have not enabled it in this library yet.
+        // - https://github.com/litecoin-project/litecoin/blob/v0.21.4/src/chainparams.cpp#L89-L92
+        // - https://github.com/litecoin-project/litecoin/blob/v0.21.4/src/script/interpreter.h#L129-L131
+        let taproot = segwit && matches!(self.mainnet(), Network::Bitcoin);
+
+        OutputScriptSupport { segwit, taproot }
+    }
+}
+
 /// Get codec for encoding an address for a given network and script type.
 fn get_encode_codec(
     network: Network,
     script: &Script,
     format: AddressFormat,
 ) -> Result<&'static dyn AddressCodec> {
+    network.output_script_support().assert_support(script)?;
+
     let is_witness = script.is_p2wpkh() || script.is_p2wsh() || script.is_p2tr();
     let is_legacy = script.is_p2pkh() || script.is_p2sh();
 
@@ -208,6 +302,7 @@ pub fn from_output_script_with_coin_and_format(
     from_output_script_with_network_and_format(script, network, format)
 }
 
+use miniscript::bitcoin::WitnessVersion;
 // WASM bindings
 use wasm_bindgen::prelude::*;
 
@@ -475,5 +570,235 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("Unknown address format"));
+    }
+
+    #[test]
+    fn test_output_script_support_assert_legacy() {
+        // Legacy should always succeed regardless of support flags
+        let support_none = OutputScriptSupport {
+            segwit: false,
+            taproot: false,
+        };
+        assert!(support_none.assert_legacy().is_ok());
+
+        let support_all = OutputScriptSupport {
+            segwit: true,
+            taproot: true,
+        };
+        assert!(support_all.assert_legacy().is_ok());
+    }
+
+    #[test]
+    fn test_output_script_support_assert_segwit() {
+        // Should succeed when segwit is supported
+        let support_segwit = OutputScriptSupport {
+            segwit: true,
+            taproot: false,
+        };
+        assert!(support_segwit.assert_segwit().is_ok());
+
+        // Should fail when segwit is not supported
+        let no_support = OutputScriptSupport {
+            segwit: false,
+            taproot: false,
+        };
+        let result = no_support.assert_segwit();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Network does not support segwit"));
+    }
+
+    #[test]
+    fn test_output_script_support_assert_taproot() {
+        // Should succeed when taproot is supported
+        let support_taproot = OutputScriptSupport {
+            segwit: true,
+            taproot: true,
+        };
+        assert!(support_taproot.assert_taproot().is_ok());
+
+        // Should fail when taproot is not supported
+        let no_support = OutputScriptSupport {
+            segwit: true,
+            taproot: false,
+        };
+        let result = no_support.assert_taproot();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Network does not support taproot"));
+    }
+
+    #[test]
+    fn test_output_script_support_assert_support_legacy() {
+        // Test with legacy P2PKH script
+        let hash = hex::decode("62e907b15cbf27d5425399ebf6f0fb50ebb88f18").unwrap();
+        let pubkey_hash = PubkeyHash::from_byte_array(hash.try_into().unwrap());
+        let p2pkh_script = ScriptBuf::new_p2pkh(&pubkey_hash);
+
+        // Legacy scripts should work even without segwit/taproot support
+        let no_support = OutputScriptSupport {
+            segwit: false,
+            taproot: false,
+        };
+        assert!(no_support.assert_support(&p2pkh_script).is_ok());
+
+        // Test with legacy P2SH script
+        let hash2 = hex::decode("89abcdef89abcdef89abcdef89abcdef89abcdef").unwrap();
+        let script_hash = crate::bitcoin::ScriptHash::from_byte_array(hash2.try_into().unwrap());
+        let p2sh_script = ScriptBuf::new_p2sh(&script_hash);
+        assert!(no_support.assert_support(&p2sh_script).is_ok());
+    }
+
+    #[test]
+    fn test_output_script_support_assert_support_segwit() {
+        // Test with P2WPKH script (witness v0)
+        let hash = hex::decode("751e76e8199196d454941c45d1b3a323f1433bd6").unwrap();
+        let wpkh = crate::bitcoin::WPubkeyHash::from_byte_array(hash.try_into().unwrap());
+        let p2wpkh_script = ScriptBuf::new_p2wpkh(&wpkh);
+
+        // Should succeed with segwit support
+        let support_segwit = OutputScriptSupport {
+            segwit: true,
+            taproot: false,
+        };
+        assert!(support_segwit.assert_support(&p2wpkh_script).is_ok());
+
+        // Should fail without segwit support
+        let no_support = OutputScriptSupport {
+            segwit: false,
+            taproot: false,
+        };
+        let result = no_support.assert_support(&p2wpkh_script);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Network does not support segwit"));
+
+        // Test with P2WSH script (witness v0)
+        let wsh = crate::bitcoin::WScriptHash::from_byte_array(
+            hex::decode("751e76e8199196d454941c45d1b3a323f1433bd6751e76e8199196d454941c45")
+                .unwrap()
+                .try_into()
+                .unwrap(),
+        );
+        let p2wsh_script = ScriptBuf::new_p2wsh(&wsh);
+        assert!(support_segwit.assert_support(&p2wsh_script).is_ok());
+        assert!(no_support.assert_support(&p2wsh_script).is_err());
+    }
+
+    #[test]
+    fn test_output_script_support_assert_support_taproot() {
+        // Test with P2TR script (witness v1)
+        use crate::bitcoin::secp256k1::{Secp256k1, XOnlyPublicKey};
+
+        let secp = Secp256k1::verification_only();
+        // Use a fixed x-only public key for testing
+        let xonly_pk = XOnlyPublicKey::from_slice(
+            &hex::decode("cc8a4bc64d897bddc5fbc2f670f7a8ba0b386779106cf1223c6fc5d7cd6fc115")
+                .unwrap(),
+        )
+        .unwrap();
+        let p2tr_script = ScriptBuf::new_p2tr(&secp, xonly_pk, None);
+
+        // Should succeed with taproot support
+        let support_taproot = OutputScriptSupport {
+            segwit: true,
+            taproot: true,
+        };
+        assert!(support_taproot.assert_support(&p2tr_script).is_ok());
+
+        // Should fail without taproot support (but with segwit)
+        let no_taproot = OutputScriptSupport {
+            segwit: true,
+            taproot: false,
+        };
+        let result = no_taproot.assert_support(&p2tr_script);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Network does not support taproot"));
+
+        // Should also fail without segwit or taproot
+        let no_support = OutputScriptSupport {
+            segwit: false,
+            taproot: false,
+        };
+        let result = no_support.assert_support(&p2tr_script);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_output_script_support_network_specific() {
+        // Test Bitcoin - should support segwit and taproot
+        let btc_support = Network::Bitcoin.output_script_support();
+        assert!(btc_support.segwit);
+        assert!(btc_support.taproot);
+
+        // Test Bitcoin testnet - should support segwit and taproot
+        let tbtc_support = Network::BitcoinTestnet3.output_script_support();
+        assert!(tbtc_support.segwit);
+        assert!(tbtc_support.taproot);
+
+        // Test Litecoin - should support segwit but not taproot
+        let ltc_support = Network::Litecoin.output_script_support();
+        assert!(ltc_support.segwit);
+        assert!(!ltc_support.taproot);
+
+        // Test Bitcoin Gold - should support segwit but not taproot
+        let btg_support = Network::BitcoinGold.output_script_support();
+        assert!(btg_support.segwit);
+        assert!(!btg_support.taproot);
+
+        // Test Dogecoin - should not support segwit or taproot
+        let doge_support = Network::Dogecoin.output_script_support();
+        assert!(!doge_support.segwit);
+        assert!(!doge_support.taproot);
+
+        // Test Bitcoin Cash - should not support segwit or taproot
+        let bch_support = Network::BitcoinCash.output_script_support();
+        assert!(!bch_support.segwit);
+        assert!(!bch_support.taproot);
+    }
+
+    #[test]
+    fn test_get_encode_codec_enforces_script_support() {
+        // Test that get_encode_codec enforces script support via assert_support
+
+        // P2WPKH on Bitcoin should work
+        let hash = hex::decode("751e76e8199196d454941c45d1b3a323f1433bd6").unwrap();
+        let wpkh = crate::bitcoin::WPubkeyHash::from_byte_array(hash.try_into().unwrap());
+        let p2wpkh_script = ScriptBuf::new_p2wpkh(&wpkh);
+        assert!(get_encode_codec(Network::Bitcoin, &p2wpkh_script, AddressFormat::Default).is_ok());
+
+        // P2WPKH on Bitcoin Cash should fail (no segwit support)
+        let result = get_encode_codec(Network::BitcoinCash, &p2wpkh_script, AddressFormat::Default);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(e.to_string().contains("Network does not support segwit"));
+        }
+
+        // P2TR on Bitcoin should work
+        use crate::bitcoin::secp256k1::{Secp256k1, XOnlyPublicKey};
+        let secp = Secp256k1::verification_only();
+        let xonly_pk = XOnlyPublicKey::from_slice(
+            &hex::decode("cc8a4bc64d897bddc5fbc2f670f7a8ba0b386779106cf1223c6fc5d7cd6fc115")
+                .unwrap(),
+        )
+        .unwrap();
+        let p2tr_script = ScriptBuf::new_p2tr(&secp, xonly_pk, None);
+        assert!(get_encode_codec(Network::Bitcoin, &p2tr_script, AddressFormat::Default).is_ok());
+
+        // P2TR on Litecoin should fail (no taproot support)
+        let result = get_encode_codec(Network::Litecoin, &p2tr_script, AddressFormat::Default);
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(e.to_string().contains("Network does not support taproot"));
+        }
     }
 }

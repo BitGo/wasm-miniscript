@@ -12,8 +12,10 @@ pub use checkmultisig::{
 pub use checksigverify::{build_p2tr_ns_script, ScriptP2tr};
 pub use singlesig::{build_p2pk_script, ScriptP2shP2pk};
 
+use crate::address::networks::OutputScriptSupport;
 use crate::bitcoin::bip32::{ChildNumber, DerivationPath};
 use crate::bitcoin::ScriptBuf;
+use crate::error::WasmMiniscriptError;
 use crate::fixed_script_wallet::wallet_keys::{to_pub_triple, PubTriple, XpubTriple};
 use crate::RootWalletKeys;
 use std::convert::TryFrom;
@@ -51,32 +53,41 @@ impl std::fmt::Display for WalletScripts {
 }
 
 impl WalletScripts {
-    pub fn new(keys: &PubTriple, chain: Chain) -> WalletScripts {
+    pub fn new(
+        keys: &PubTriple,
+        chain: Chain,
+        script_support: &OutputScriptSupport,
+    ) -> Result<WalletScripts, WasmMiniscriptError> {
         match chain {
             Chain::P2shExternal | Chain::P2shInternal => {
+                script_support.assert_legacy()?;
                 let script = build_multisig_script_2_of_3(keys);
-                WalletScripts::P2sh(ScriptP2sh {
+                Ok(WalletScripts::P2sh(ScriptP2sh {
                     redeem_script: script,
-                })
+                }))
             }
             Chain::P2shP2wshExternal | Chain::P2shP2wshInternal => {
+                script_support.assert_segwit()?;
                 let script = build_multisig_script_2_of_3(keys);
-                WalletScripts::P2shP2wsh(ScriptP2shP2wsh {
+                Ok(WalletScripts::P2shP2wsh(ScriptP2shP2wsh {
                     redeem_script: script.clone().to_p2wsh(),
                     witness_script: script,
-                })
+                }))
             }
             Chain::P2wshExternal | Chain::P2wshInternal => {
+                script_support.assert_segwit()?;
                 let script = build_multisig_script_2_of_3(keys);
-                WalletScripts::P2wsh(ScriptP2wsh {
+                Ok(WalletScripts::P2wsh(ScriptP2wsh {
                     witness_script: script,
-                })
+                }))
             }
             Chain::P2trInternal | Chain::P2trExternal => {
-                WalletScripts::P2trLegacy(ScriptP2tr::new(keys, false))
+                script_support.assert_taproot()?;
+                Ok(WalletScripts::P2trLegacy(ScriptP2tr::new(keys, false)))
             }
             Chain::P2trMusig2Internal | Chain::P2trMusig2External => {
-                WalletScripts::P2trMusig2(ScriptP2tr::new(keys, true))
+                script_support.assert_taproot()?;
+                Ok(WalletScripts::P2trMusig2(ScriptP2tr::new(keys, true)))
             }
         }
     }
@@ -85,11 +96,12 @@ impl WalletScripts {
         wallet_keys: &RootWalletKeys,
         chain: Chain,
         index: u32,
-    ) -> WalletScripts {
+        script_support: &OutputScriptSupport,
+    ) -> Result<WalletScripts, WasmMiniscriptError> {
         let derived_keys = wallet_keys
             .derive_for_chain_and_index(chain as u32, index)
             .unwrap();
-        WalletScripts::new(&to_pub_triple(&derived_keys), chain)
+        WalletScripts::new(&to_pub_triple(&derived_keys), chain, script_support)
     }
 
     pub fn output_script(&self) -> ScriptBuf {
@@ -199,9 +211,16 @@ mod tests {
     use super::*;
     use crate::fixed_script_wallet::test_utils::fixtures;
     use crate::fixed_script_wallet::wallet_keys::tests::get_test_wallet_keys;
+    use crate::Network;
 
     fn assert_output_script(keys: &RootWalletKeys, chain: Chain, expected_script: &str) {
-        let scripts = WalletScripts::from_wallet_keys(keys, chain, 0);
+        let scripts = WalletScripts::from_wallet_keys(
+            keys,
+            chain,
+            0,
+            &Network::Bitcoin.output_script_support(),
+        )
+        .unwrap();
         let output_script = scripts.output_script();
         assert_eq!(output_script.to_hex_string(), expected_script);
     }
@@ -382,7 +401,13 @@ mod tests {
 
         let (chain, index) =
             parse_fixture_paths(input_fixture).expect("Failed to parse fixture paths");
-        let scripts = WalletScripts::from_wallet_keys(&wallet_keys, chain, index);
+        let scripts = WalletScripts::from_wallet_keys(
+            &wallet_keys,
+            chain,
+            index,
+            &Network::Bitcoin.output_script_support(),
+        )
+        .expect("Failed to create wallet scripts");
 
         // Use the new helper methods for validation
         match (scripts, input_fixture) {
@@ -469,5 +494,102 @@ mod tests {
     #[test]
     fn test_p2tr_musig2_key_path_spend_script_generation_from_fixture() {
         test_wallet_script_type("taprootKeypath").unwrap();
+    }
+
+    #[test]
+    fn test_script_support_rejects_unsupported_script_types() {
+        let keys = get_test_wallet_keys("test");
+
+        // Test segwit rejection: try to create P2wsh on a network without segwit support
+        let no_segwit_support = OutputScriptSupport {
+            segwit: false,
+            taproot: false,
+        };
+
+        let result =
+            WalletScripts::from_wallet_keys(&keys, Chain::P2wshExternal, 0, &no_segwit_support);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Network does not support segwit"));
+
+        let result =
+            WalletScripts::from_wallet_keys(&keys, Chain::P2shP2wshExternal, 0, &no_segwit_support);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Network does not support segwit"));
+
+        // Test taproot rejection: try to create P2tr on a network without taproot support
+        let no_taproot_support = OutputScriptSupport {
+            segwit: true,
+            taproot: false,
+        };
+
+        let result =
+            WalletScripts::from_wallet_keys(&keys, Chain::P2trExternal, 0, &no_taproot_support);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Network does not support taproot"));
+
+        let result = WalletScripts::from_wallet_keys(
+            &keys,
+            Chain::P2trMusig2External,
+            0,
+            &no_taproot_support,
+        );
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Network does not support taproot"));
+
+        // Test that legacy scripts work regardless of support flags
+        let result =
+            WalletScripts::from_wallet_keys(&keys, Chain::P2shExternal, 0, &no_segwit_support);
+        assert!(result.is_ok());
+
+        // Test real-world network scenarios
+        // Dogecoin doesn't support segwit or taproot
+        let doge_support = Network::Dogecoin.output_script_support();
+        let result = WalletScripts::from_wallet_keys(&keys, Chain::P2wshExternal, 0, &doge_support);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Network does not support segwit"));
+
+        // Litecoin supports segwit but not taproot
+        let ltc_support = Network::Litecoin.output_script_support();
+        let result = WalletScripts::from_wallet_keys(&keys, Chain::P2trExternal, 0, &ltc_support);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Network does not support taproot"));
+
+        // Litecoin should support segwit scripts
+        let result = WalletScripts::from_wallet_keys(&keys, Chain::P2wshExternal, 0, &ltc_support);
+        assert!(result.is_ok());
+
+        // Bitcoin should support all script types
+        let btc_support = Network::Bitcoin.output_script_support();
+        assert!(
+            WalletScripts::from_wallet_keys(&keys, Chain::P2shExternal, 0, &btc_support).is_ok()
+        );
+        assert!(
+            WalletScripts::from_wallet_keys(&keys, Chain::P2wshExternal, 0, &btc_support).is_ok()
+        );
+        assert!(
+            WalletScripts::from_wallet_keys(&keys, Chain::P2trExternal, 0, &btc_support).is_ok()
+        );
+        assert!(
+            WalletScripts::from_wallet_keys(&keys, Chain::P2trMusig2External, 0, &btc_support)
+                .is_ok()
+        );
     }
 }
