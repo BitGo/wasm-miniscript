@@ -174,6 +174,32 @@ impl Network {
         }
     }
 
+    pub fn to_utxolib_name(&self) -> &'static str {
+        match self {
+            Network::Bitcoin => "bitcoin",
+            Network::BitcoinTestnet3 => "testnet",
+            Network::BitcoinTestnet4 => "bitcoinTestnet4",
+            Network::BitcoinPublicSignet => "bitcoinPublicSignet",
+            Network::BitcoinBitGoSignet => "bitcoinBitGoSignet",
+            Network::BitcoinCash => "bitcoincash",
+            Network::BitcoinCashTestnet => "bitcoincashTestnet",
+            Network::Ecash => "ecash",
+            Network::EcashTestnet => "ecashTest",
+            Network::BitcoinGold => "bitcoingold",
+            Network::BitcoinGoldTestnet => "bitcoingoldTestnet",
+            Network::BitcoinSV => "bitcoinsv",
+            Network::BitcoinSVTestnet => "bitcoinsvTestnet",
+            Network::Dash => "dash",
+            Network::DashTestnet => "dashTest",
+            Network::Dogecoin => "dogecoin",
+            Network::DogecoinTestnet => "dogecoinTest",
+            Network::Litecoin => "litecoin",
+            Network::LitecoinTestnet => "litecoinTest",
+            Network::Zcash => "zcash",
+            Network::ZcashTestnet => "zcashTest",
+        }
+    }
+
     /// Convert from a bitgo coin name to a Network enum value.
     pub fn from_coin_name(name: &str) -> Option<Network> {
         match name {
@@ -322,6 +348,12 @@ mod tests {
                 Some(network),
                 "Failed for name: {}",
                 name
+            );
+            assert_eq!(
+                network.to_utxolib_name(),
+                name,
+                "Failed for network: {}",
+                network
             );
         }
     }
