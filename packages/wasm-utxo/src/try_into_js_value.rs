@@ -1,4 +1,4 @@
-use crate::error::WasmMiniscriptError;
+use crate::error::WasmUtxoError;
 use js_sys::Array;
 use miniscript::bitcoin::hashes::{hash160, ripemd160};
 use miniscript::bitcoin::psbt::{SigningKeys, SigningKeysMap};
@@ -12,7 +12,7 @@ use std::sync::Arc;
 use wasm_bindgen::JsValue;
 
 pub(crate) trait TryIntoJsValue {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError>;
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError>;
 }
 
 macro_rules! js_obj {
@@ -20,9 +20,9 @@ macro_rules! js_obj {
         let obj = js_sys::Object::new();
         $(
             js_sys::Reflect::set(&obj, &$key.into(), &$value.try_to_js_value()?.into())
-                .map_err(|_| WasmMiniscriptError::new("Failed to set object property"))?;
+                .map_err(|_| WasmUtxoError::new("Failed to set object property"))?;
         )*
-        Ok(Into::<JsValue>::into(obj)) as Result<JsValue, WasmMiniscriptError>
+        Ok(Into::<JsValue>::into(obj)) as Result<JsValue, WasmUtxoError>
     }};
 }
 
@@ -36,33 +36,33 @@ macro_rules! js_arr {
     }};
 }
 
-impl From<WasmMiniscriptError> for JsValue {
-    fn from(err: WasmMiniscriptError) -> Self {
+impl From<WasmUtxoError> for JsValue {
+    fn from(err: WasmUtxoError) -> Self {
         js_sys::Error::new(&err.to_string()).into()
     }
 }
 
 impl TryIntoJsValue for JsValue {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         Ok(self.clone())
     }
 }
 
 impl<T: TryIntoJsValue> TryIntoJsValue for Arc<T> {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         self.as_ref().try_to_js_value()
     }
 }
 
 impl TryIntoJsValue for String {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         Ok(JsValue::from_str(self))
     }
 }
 
 // array of TryToJsValue
 impl<T: TryIntoJsValue> TryIntoJsValue for Vec<T> {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         let arr = Array::new();
         for item in self.iter() {
             arr.push(&item.try_to_js_value()?);
@@ -72,7 +72,7 @@ impl<T: TryIntoJsValue> TryIntoJsValue for Vec<T> {
 }
 
 impl<T: TryIntoJsValue> TryIntoJsValue for Option<T> {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         match self {
             Some(v) => v.try_to_js_value(),
             None => Ok(JsValue::NULL),
@@ -81,55 +81,55 @@ impl<T: TryIntoJsValue> TryIntoJsValue for Option<T> {
 }
 
 impl TryIntoJsValue for XOnlyPublicKey {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         Ok(JsValue::from_str(&self.to_string()))
     }
 }
 
 impl TryIntoJsValue for PublicKey {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         Ok(JsValue::from_str(&self.to_string()))
     }
 }
 
 impl TryIntoJsValue for AbsLockTime {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         Ok(JsValue::from_f64(self.to_consensus_u32() as f64))
     }
 }
 
 impl TryIntoJsValue for RelLockTime {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         Ok(JsValue::from_f64(self.to_consensus_u32() as f64))
     }
 }
 
 impl TryIntoJsValue for ripemd160::Hash {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         Ok(JsValue::from_str(&self.to_string()))
     }
 }
 
 impl TryIntoJsValue for hash160::Hash {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         Ok(JsValue::from_str(&self.to_string()))
     }
 }
 
 impl TryIntoJsValue for hash256::Hash {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         Ok(JsValue::from_str(&self.to_string()))
     }
 }
 
 impl TryIntoJsValue for usize {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         Ok(JsValue::from_f64(*self as f64))
     }
 }
 
 impl<T: TryIntoJsValue, const MAX: usize> TryIntoJsValue for Threshold<T, MAX> {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         let arr = Array::new();
         arr.push(&self.k().try_to_js_value()?);
         for v in self.iter() {
@@ -142,13 +142,13 @@ impl<T: TryIntoJsValue, const MAX: usize> TryIntoJsValue for Threshold<T, MAX> {
 impl<Pk: MiniscriptKey + TryIntoJsValue, Ctx: ScriptContext> TryIntoJsValue
     for Miniscript<Pk, Ctx>
 {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         self.node.try_to_js_value()
     }
 }
 
 impl<Pk: MiniscriptKey + TryIntoJsValue, Ctx: ScriptContext> TryIntoJsValue for Terminal<Pk, Ctx> {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         match self {
             Terminal::True => Ok(JsValue::TRUE),
             Terminal::False => Ok(JsValue::FALSE),
@@ -186,7 +186,7 @@ impl<Pk: MiniscriptKey + TryIntoJsValue, Ctx: ScriptContext> TryIntoJsValue for 
 impl<Pk: MiniscriptKey + TryIntoJsValue, Ctx: ScriptContext> TryIntoJsValue
     for SortedMultiVec<Pk, Ctx>
 {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         js_obj!(
             "k" => self.k(),
             "n" => self.n(),
@@ -196,7 +196,7 @@ impl<Pk: MiniscriptKey + TryIntoJsValue, Ctx: ScriptContext> TryIntoJsValue
 }
 
 impl<Pk: MiniscriptKey + TryIntoJsValue> TryIntoJsValue for ShInner<Pk> {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         match self {
             ShInner::Wsh(v) => js_obj!("Wsh" => v.as_inner()),
             ShInner::Wpkh(v) => js_obj!("Wpkh" => v.as_inner()),
@@ -207,7 +207,7 @@ impl<Pk: MiniscriptKey + TryIntoJsValue> TryIntoJsValue for ShInner<Pk> {
 }
 
 impl<Pk: MiniscriptKey + TryIntoJsValue> TryIntoJsValue for WshInner<Pk> {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         match self {
             WshInner::SortedMulti(v) => js_obj!("SortedMulti" => v),
             WshInner::Ms(v) => js_obj!("Ms" => v),
@@ -216,13 +216,13 @@ impl<Pk: MiniscriptKey + TryIntoJsValue> TryIntoJsValue for WshInner<Pk> {
 }
 
 impl<Pk: MiniscriptKey + TryIntoJsValue> TryIntoJsValue for Tr<Pk> {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         Ok(js_arr!(self.internal_key(), self.tap_tree()))
     }
 }
 
 impl<Pk: MiniscriptKey + TryIntoJsValue> TryIntoJsValue for TapTree<Pk> {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         match self {
             TapTree::Tree { left, right, .. } => js_obj!("Tree" => js_arr!(left, right)),
             TapTree::Leaf(ms) => ms.try_to_js_value(),
@@ -231,7 +231,7 @@ impl<Pk: MiniscriptKey + TryIntoJsValue> TryIntoJsValue for TapTree<Pk> {
 }
 
 impl TryIntoJsValue for DescriptorPublicKey {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         match self {
             DescriptorPublicKey::Single(_v) => js_obj!("Single" => self.to_string()),
             DescriptorPublicKey::XPub(_v) => js_obj!("XPub" => self.to_string()),
@@ -241,13 +241,13 @@ impl TryIntoJsValue for DescriptorPublicKey {
 }
 
 impl TryIntoJsValue for DefiniteDescriptorKey {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         self.as_descriptor_public_key().try_to_js_value()
     }
 }
 
 impl<Pk: MiniscriptKey + TryIntoJsValue> TryIntoJsValue for Descriptor<Pk> {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         match self {
             Descriptor::Bare(v) => js_obj!("Bare" => v.as_inner()),
             Descriptor::Pkh(v) => js_obj!("Pkh" => v.as_inner()),
@@ -260,14 +260,14 @@ impl<Pk: MiniscriptKey + TryIntoJsValue> TryIntoJsValue for Descriptor<Pk> {
 }
 
 impl TryIntoJsValue for DescriptorType {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         let str_from_enum = format!("{:?}", self);
         Ok(JsValue::from_str(&str_from_enum))
     }
 }
 
 impl TryIntoJsValue for SigningKeys {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         match self {
             SigningKeys::Ecdsa(v) => {
                 js_obj!("Ecdsa" => v)
@@ -280,11 +280,11 @@ impl TryIntoJsValue for SigningKeys {
 }
 
 impl TryIntoJsValue for SigningKeysMap {
-    fn try_to_js_value(&self) -> Result<JsValue, WasmMiniscriptError> {
+    fn try_to_js_value(&self) -> Result<JsValue, WasmUtxoError> {
         let obj = js_sys::Object::new();
         for (key, value) in self.iter() {
             js_sys::Reflect::set(&obj, &key.to_string().into(), &value.try_to_js_value()?)
-                .map_err(|_| WasmMiniscriptError::new("Failed to set object property"))?;
+                .map_err(|_| WasmUtxoError::new("Failed to set object property"))?;
         }
         Ok(obj.into())
     }

@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use crate::bitcoin::bip32::{ChildNumber, DerivationPath};
 use crate::bitcoin::{bip32::Xpub, secp256k1::Secp256k1, CompressedPublicKey};
-use crate::error::WasmMiniscriptError;
+use crate::error::WasmUtxoError;
 use wasm_bindgen::JsValue;
 
 use super::bip32interface::xpub_from_bip32interface;
@@ -12,41 +12,40 @@ pub type XpubTriple = [Xpub; 3];
 
 pub type PubTriple = [CompressedPublicKey; 3];
 
-pub fn xpub_triple_from_jsvalue(keys: &JsValue) -> Result<XpubTriple, WasmMiniscriptError> {
+pub fn xpub_triple_from_jsvalue(keys: &JsValue) -> Result<XpubTriple, WasmUtxoError> {
     let keys_array = js_sys::Array::from(keys);
     if keys_array.length() != 3 {
-        return Err(WasmMiniscriptError::new("Expected exactly 3 xpub keys"));
+        return Err(WasmUtxoError::new("Expected exactly 3 xpub keys"));
     }
 
     let key_strings: Result<[String; 3], _> = (0..3)
         .map(|i| {
-            keys_array.get(i).as_string().ok_or_else(|| {
-                WasmMiniscriptError::new(&format!("Key at index {} is not a string", i))
-            })
+            keys_array
+                .get(i)
+                .as_string()
+                .ok_or_else(|| WasmUtxoError::new(&format!("Key at index {} is not a string", i)))
         })
         .collect::<Result<Vec<_>, _>>()
         .and_then(|v| {
             v.try_into()
-                .map_err(|_| WasmMiniscriptError::new("Failed to convert to array"))
+                .map_err(|_| WasmUtxoError::new("Failed to convert to array"))
         });
 
     xpub_triple_from_strings(&key_strings?)
 }
 
-pub fn xpub_triple_from_strings(
-    xpub_strings: &[String; 3],
-) -> Result<XpubTriple, WasmMiniscriptError> {
+pub fn xpub_triple_from_strings(xpub_strings: &[String; 3]) -> Result<XpubTriple, WasmUtxoError> {
     let xpubs: Result<Vec<Xpub>, _> = xpub_strings
         .iter()
         .map(|s| {
             Xpub::from_str(s)
-                .map_err(|e| WasmMiniscriptError::new(&format!("Failed to parse xpub: {}", e)))
+                .map_err(|e| WasmUtxoError::new(&format!("Failed to parse xpub: {}", e)))
         })
         .collect();
 
     xpubs?
         .try_into()
-        .map_err(|_| WasmMiniscriptError::new("Expected exactly 3 xpubs"))
+        .map_err(|_| WasmUtxoError::new("Expected exactly 3 xpubs"))
 }
 
 pub fn to_pub_triple(xpubs: &XpubTriple) -> PubTriple {
@@ -90,7 +89,7 @@ impl RootWalletKeys {
         &self,
         chain: u32,
         index: u32,
-    ) -> Result<XpubTriple, WasmMiniscriptError> {
+    ) -> Result<XpubTriple, WasmUtxoError> {
         let paths: Vec<DerivationPath> = self
             .derivation_prefixes
             .iter()
@@ -102,20 +101,20 @@ impl RootWalletKeys {
 
         let ctx = Secp256k1::new();
 
-        // zip xpubs and paths, and return a Result<XpubTriple, WasmMiniscriptError>
+        // zip xpubs and paths, and return a Result<XpubTriple, WasmUtxoError>
         self.xpubs
             .iter()
             .zip(paths.iter())
             .map(|(x, p)| {
                 x.derive_pub(&ctx, p)
-                    .map_err(|e| WasmMiniscriptError::new(&format!("Error deriving xpub: {}", e)))
+                    .map_err(|e| WasmUtxoError::new(&format!("Error deriving xpub: {}", e)))
             })
             .collect::<Result<Vec<_>, _>>()?
             .try_into()
-            .map_err(|_| WasmMiniscriptError::new("Expected exactly 3 derived xpubs"))
+            .map_err(|_| WasmUtxoError::new("Expected exactly 3 derived xpubs"))
     }
 
-    pub(crate) fn from_jsvalue(keys: &JsValue) -> Result<RootWalletKeys, WasmMiniscriptError> {
+    pub(crate) fn from_jsvalue(keys: &JsValue) -> Result<RootWalletKeys, WasmUtxoError> {
         // Check if keys is an array (xpub strings) or an object (WalletKeys/RootWalletKeys)
         if js_sys::Array::is_array(keys) {
             // Handle array of xpub strings
@@ -134,19 +133,15 @@ impl RootWalletKeys {
 
             // Get the triple property
             let triple = js_sys::Reflect::get(&obj, &JsValue::from_str("triple"))
-                .map_err(|_| WasmMiniscriptError::new("Failed to get 'triple' property"))?;
+                .map_err(|_| WasmUtxoError::new("Failed to get 'triple' property"))?;
 
             if !js_sys::Array::is_array(&triple) {
-                return Err(WasmMiniscriptError::new(
-                    "'triple' property must be an array",
-                ));
+                return Err(WasmUtxoError::new("'triple' property must be an array"));
             }
 
             let triple_array = js_sys::Array::from(&triple);
             if triple_array.length() != 3 {
-                return Err(WasmMiniscriptError::new(
-                    "'triple' must contain exactly 3 keys",
-                ));
+                return Err(WasmUtxoError::new("'triple' must contain exactly 3 keys"));
             }
 
             // Extract xpubs from BIP32Interface objects
@@ -157,7 +152,7 @@ impl RootWalletKeys {
                 })
                 .collect::<Result<Vec<_>, _>>()?
                 .try_into()
-                .map_err(|_| WasmMiniscriptError::new("Failed to convert to array"))?;
+                .map_err(|_| WasmUtxoError::new("Failed to convert to array"))?;
 
             // Try to get derivationPrefixes if present (for RootWalletKeys)
             let derivation_prefixes =
@@ -179,15 +174,15 @@ impl RootWalletKeys {
 
                         let prefix_strings: Result<[String; 3], _> = (0..3)
                             .map(|i| {
-                                prefixes_array.get(i).as_string().ok_or_else(|| {
-                                    WasmMiniscriptError::new("Prefix is not a string")
-                                })
+                                prefixes_array
+                                    .get(i)
+                                    .as_string()
+                                    .ok_or_else(|| WasmUtxoError::new("Prefix is not a string"))
                             })
                             .collect::<Result<Vec<_>, _>>()
                             .and_then(|v| {
-                                v.try_into().map_err(|_| {
-                                    WasmMiniscriptError::new("Failed to convert to array")
-                                })
+                                v.try_into()
+                                    .map_err(|_| WasmUtxoError::new("Failed to convert to array"))
                             });
 
                         prefix_strings.ok()
@@ -201,12 +196,12 @@ impl RootWalletKeys {
                         // Remove leading 'm/' if present and add it back
                         let p = p.strip_prefix("m/").unwrap_or(p);
                         DerivationPath::from_str(&format!("m/{}", p)).map_err(|e| {
-                            WasmMiniscriptError::new(&format!("Invalid derivation prefix: {}", e))
+                            WasmUtxoError::new(&format!("Invalid derivation prefix: {}", e))
                         })
                     })
                     .collect::<Result<Vec<_>, _>>()?
                     .try_into()
-                    .map_err(|_| WasmMiniscriptError::new("Failed to convert derivation paths"))?
+                    .map_err(|_| WasmUtxoError::new("Failed to convert derivation paths"))?
             } else {
                 [
                     DerivationPath::from_str("m/0/0").unwrap(),
@@ -220,7 +215,7 @@ impl RootWalletKeys {
                 derivation_paths,
             ))
         } else {
-            Err(WasmMiniscriptError::new(
+            Err(WasmUtxoError::new(
                 "Expected array of xpub strings or WalletKeys object",
             ))
         }
