@@ -1,9 +1,9 @@
 use crate::address::utxolib_compat::{CashAddr, UtxolibNetwork};
-use crate::error::WasmMiniscriptError;
+use crate::error::WasmUtxoError;
 use wasm_bindgen::JsValue;
 
 pub(crate) trait TryFromJsValue {
-    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmMiniscriptError>
+    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmUtxoError>
     where
         Self: Sized;
 }
@@ -11,33 +11,33 @@ pub(crate) trait TryFromJsValue {
 // Implement TryFromJsValue for primitive types
 
 impl TryFromJsValue for String {
-    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmMiniscriptError> {
+    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmUtxoError> {
         value
             .as_string()
-            .ok_or_else(|| WasmMiniscriptError::new("Expected a string"))
+            .ok_or_else(|| WasmUtxoError::new("Expected a string"))
     }
 }
 
 impl TryFromJsValue for u8 {
-    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmMiniscriptError> {
+    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmUtxoError> {
         value
             .as_f64()
-            .ok_or_else(|| WasmMiniscriptError::new("Expected a number"))
+            .ok_or_else(|| WasmUtxoError::new("Expected a number"))
             .map(|n| n as u8)
     }
 }
 
 impl TryFromJsValue for u32 {
-    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmMiniscriptError> {
+    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmUtxoError> {
         value
             .as_f64()
-            .ok_or_else(|| WasmMiniscriptError::new("Expected a number"))
+            .ok_or_else(|| WasmUtxoError::new("Expected a number"))
             .map(|n| n as u32)
     }
 }
 
 impl<T: TryFromJsValue> TryFromJsValue for Option<T> {
-    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmMiniscriptError> {
+    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmUtxoError> {
         if value.is_undefined() || value.is_null() {
             Ok(None)
         } else {
@@ -47,22 +47,19 @@ impl<T: TryFromJsValue> TryFromJsValue for Option<T> {
 }
 
 // Helper function to get a field from an object and convert it using TryFromJsValue
-pub(crate) fn get_field<T: TryFromJsValue>(
-    obj: &JsValue,
-    key: &str,
-) -> Result<T, WasmMiniscriptError> {
+pub(crate) fn get_field<T: TryFromJsValue>(obj: &JsValue, key: &str) -> Result<T, WasmUtxoError> {
     let field_value = js_sys::Reflect::get(obj, &JsValue::from_str(key))
-        .map_err(|_| WasmMiniscriptError::new(&format!("Failed to read {} from object", key)))?;
+        .map_err(|_| WasmUtxoError::new(&format!("Failed to read {} from object", key)))?;
 
     T::try_from_js_value(&field_value)
-        .map_err(|e| WasmMiniscriptError::new(&format!("{} (field: {})", e, key)))
+        .map_err(|e| WasmUtxoError::new(&format!("{} (field: {})", e, key)))
 }
 
 // Helper function to get a nested field using dot notation (e.g., "network.bip32.public")
 pub(crate) fn get_nested_field<T: TryFromJsValue>(
     obj: &JsValue,
     path: &str,
-) -> Result<T, WasmMiniscriptError> {
+) -> Result<T, WasmUtxoError> {
     let parts: Vec<&str> = path.split('.').collect();
     let mut current = obj.clone();
 
@@ -72,26 +69,25 @@ pub(crate) fn get_nested_field<T: TryFromJsValue>(
             return get_field(&current, part);
         } else {
             // Intermediate part - just get the object
-            current = js_sys::Reflect::get(&current, &JsValue::from_str(part)).map_err(|_| {
-                WasmMiniscriptError::new(&format!("Failed to read {} from object", part))
-            })?;
+            current = js_sys::Reflect::get(&current, &JsValue::from_str(part))
+                .map_err(|_| WasmUtxoError::new(&format!("Failed to read {} from object", part)))?;
         }
     }
 
-    Err(WasmMiniscriptError::new("Empty path"))
+    Err(WasmUtxoError::new("Empty path"))
 }
 
 // Helper function to get a buffer field as a fixed-size byte array
 pub(crate) fn get_buffer_field<const N: usize>(
     obj: &JsValue,
     key: &str,
-) -> Result<[u8; N], WasmMiniscriptError> {
+) -> Result<[u8; N], WasmUtxoError> {
     let field_value = js_sys::Reflect::get(obj, &JsValue::from_str(key))
-        .map_err(|_| WasmMiniscriptError::new(&format!("Failed to read {} from object", key)))?;
+        .map_err(|_| WasmUtxoError::new(&format!("Failed to read {} from object", key)))?;
 
     let buffer = js_sys::Uint8Array::new(&field_value);
     if buffer.length() as usize != N {
-        return Err(WasmMiniscriptError::new(&format!(
+        return Err(WasmUtxoError::new(&format!(
             "{} must be {} bytes, got {}",
             key,
             N,
@@ -106,12 +102,9 @@ pub(crate) fn get_buffer_field<const N: usize>(
 
 // Helper function to get a buffer field as a Vec
 #[allow(dead_code)]
-pub(crate) fn get_buffer_field_vec(
-    obj: &JsValue,
-    key: &str,
-) -> Result<Vec<u8>, WasmMiniscriptError> {
+pub(crate) fn get_buffer_field_vec(obj: &JsValue, key: &str) -> Result<Vec<u8>, WasmUtxoError> {
     let field_value = js_sys::Reflect::get(obj, &JsValue::from_str(key))
-        .map_err(|_| WasmMiniscriptError::new(&format!("Failed to read {} from object", key)))?;
+        .map_err(|_| WasmUtxoError::new(&format!("Failed to read {} from object", key)))?;
 
     let buffer = js_sys::Uint8Array::new(&field_value);
     let mut bytes = vec![0u8; buffer.length() as usize];
@@ -120,7 +113,7 @@ pub(crate) fn get_buffer_field_vec(
 }
 
 impl TryFromJsValue for UtxolibNetwork {
-    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmMiniscriptError> {
+    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmUtxoError> {
         let pub_key_hash = get_field(value, "pubKeyHash")?;
         let script_hash = get_field(value, "scriptHash")?;
         let bech32 = get_field(value, "bech32")?;
@@ -136,7 +129,7 @@ impl TryFromJsValue for UtxolibNetwork {
 }
 
 impl TryFromJsValue for CashAddr {
-    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmMiniscriptError> {
+    fn try_from_js_value(value: &JsValue) -> Result<Self, WasmUtxoError> {
         let prefix = get_field(value, "prefix")?;
         let pub_key_hash = get_field(value, "pubKeyHash")?;
         let script_hash = get_field(value, "scriptHash")?;

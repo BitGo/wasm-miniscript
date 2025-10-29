@@ -13,7 +13,7 @@ pub use wallet_scripts::*;
 use wasm_bindgen::prelude::*;
 
 use crate::address::networks::AddressFormat;
-use crate::error::WasmMiniscriptError;
+use crate::error::WasmUtxoError;
 use crate::try_from_js_value::TryFromJsValue;
 use crate::utxolib_compat::UtxolibNetwork;
 
@@ -28,10 +28,10 @@ impl FixedScriptWalletNamespace {
         chain: u32,
         index: u32,
         network: JsValue,
-    ) -> Result<Vec<u8>, WasmMiniscriptError> {
+    ) -> Result<Vec<u8>, WasmUtxoError> {
         let network = UtxolibNetwork::try_from_js_value(&network)?;
         let chain = Chain::try_from(chain)
-            .map_err(|e| WasmMiniscriptError::new(&format!("Invalid chain: {}", e)))?;
+            .map_err(|e| WasmUtxoError::new(&format!("Invalid chain: {}", e)))?;
 
         let wallet_keys = RootWalletKeys::from_jsvalue(&keys)?;
         let scripts = WalletScripts::from_wallet_keys(
@@ -50,11 +50,11 @@ impl FixedScriptWalletNamespace {
         index: u32,
         network: JsValue,
         address_format: Option<String>,
-    ) -> Result<String, WasmMiniscriptError> {
+    ) -> Result<String, WasmUtxoError> {
         let network = UtxolibNetwork::try_from_js_value(&network)?;
         let wallet_keys = RootWalletKeys::from_jsvalue(&keys)?;
         let chain = Chain::try_from(chain)
-            .map_err(|e| WasmMiniscriptError::new(&format!("Invalid chain: {}", e)))?;
+            .map_err(|e| WasmUtxoError::new(&format!("Invalid chain: {}", e)))?;
         let scripts = WalletScripts::from_wallet_keys(
             &wallet_keys,
             chain,
@@ -63,13 +63,13 @@ impl FixedScriptWalletNamespace {
         )?;
         let script = scripts.output_script();
         let address_format = AddressFormat::from_optional_str(address_format.as_deref())
-            .map_err(|e| WasmMiniscriptError::new(&format!("Invalid address format: {}", e)))?;
+            .map_err(|e| WasmUtxoError::new(&format!("Invalid address format: {}", e)))?;
         let address = crate::address::utxolib_compat::from_output_script_with_network(
             &script,
             &network,
             address_format,
         )
-        .map_err(|e| WasmMiniscriptError::new(&format!("Failed to generate address: {}", e)))?;
+        .map_err(|e| WasmUtxoError::new(&format!("Failed to generate address: {}", e)))?;
         Ok(address.to_string())
     }
 }

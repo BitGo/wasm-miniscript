@@ -15,7 +15,7 @@ pub use singlesig::{build_p2pk_script, ScriptP2shP2pk};
 use crate::address::networks::OutputScriptSupport;
 use crate::bitcoin::bip32::{ChildNumber, DerivationPath};
 use crate::bitcoin::ScriptBuf;
-use crate::error::WasmMiniscriptError;
+use crate::error::WasmUtxoError;
 use crate::fixed_script_wallet::wallet_keys::{to_pub_triple, PubTriple, XpubTriple};
 use crate::RootWalletKeys;
 use std::convert::TryFrom;
@@ -57,7 +57,7 @@ impl WalletScripts {
         keys: &PubTriple,
         chain: Chain,
         script_support: &OutputScriptSupport,
-    ) -> Result<WalletScripts, WasmMiniscriptError> {
+    ) -> Result<WalletScripts, WasmUtxoError> {
         match chain {
             Chain::P2shExternal | Chain::P2shInternal => {
                 script_support.assert_legacy()?;
@@ -97,7 +97,7 @@ impl WalletScripts {
         chain: Chain,
         index: u32,
         script_support: &OutputScriptSupport,
-    ) -> Result<WalletScripts, WasmMiniscriptError> {
+    ) -> Result<WalletScripts, WasmUtxoError> {
         let derived_keys = wallet_keys
             .derive_for_chain_and_index(chain as u32, index)
             .unwrap();

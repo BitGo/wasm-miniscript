@@ -1,4 +1,4 @@
-use crate::error::WasmMiniscriptError;
+use crate::error::WasmUtxoError;
 use crate::try_into_js_value::TryIntoJsValue;
 use miniscript::bitcoin::{PublicKey, XOnlyPublicKey};
 use miniscript::{bitcoin, Legacy, Miniscript, Segwitv0, Tap};
@@ -31,7 +31,7 @@ pub struct WrapMiniscript(WrapMiniscriptEnum);
 #[wasm_bindgen]
 impl WrapMiniscript {
     #[wasm_bindgen(js_name = node)]
-    pub fn node(&self) -> Result<JsValue, WasmMiniscriptError> {
+    pub fn node(&self) -> Result<JsValue, WasmUtxoError> {
         unwrap_apply!(&self.0, |ms| ms.try_to_js_value())
     }
 
@@ -47,29 +47,23 @@ impl WrapMiniscript {
     }
 
     #[wasm_bindgen(js_name = toAsmString)]
-    pub fn to_asm_string(&self) -> Result<String, WasmMiniscriptError> {
+    pub fn to_asm_string(&self) -> Result<String, WasmUtxoError> {
         unwrap_apply!(&self.0, |ms| Ok(ms.encode().to_asm_string()))
     }
 
     #[wasm_bindgen(js_name = fromString, skip_typescript)]
-    pub fn from_string(
-        script: &str,
-        context_type: &str,
-    ) -> Result<WrapMiniscript, WasmMiniscriptError> {
+    pub fn from_string(script: &str, context_type: &str) -> Result<WrapMiniscript, WasmUtxoError> {
         match context_type {
             "tap" => Ok(WrapMiniscript::from(
-                Miniscript::<XOnlyPublicKey, Tap>::from_str(script)
-                    .map_err(WasmMiniscriptError::from)?,
+                Miniscript::<XOnlyPublicKey, Tap>::from_str(script).map_err(WasmUtxoError::from)?,
             )),
             "segwitv0" => Ok(WrapMiniscript::from(
-                Miniscript::<PublicKey, Segwitv0>::from_str(script)
-                    .map_err(WasmMiniscriptError::from)?,
+                Miniscript::<PublicKey, Segwitv0>::from_str(script).map_err(WasmUtxoError::from)?,
             )),
             "legacy" => Ok(WrapMiniscript::from(
-                Miniscript::<PublicKey, Legacy>::from_str(script)
-                    .map_err(WasmMiniscriptError::from)?,
+                Miniscript::<PublicKey, Legacy>::from_str(script).map_err(WasmUtxoError::from)?,
             )),
-            _ => Err(WasmMiniscriptError::new("Invalid context type")),
+            _ => Err(WasmUtxoError::new("Invalid context type")),
         }
     }
 
@@ -77,22 +71,19 @@ impl WrapMiniscript {
     pub fn from_bitcoin_script(
         script: &[u8],
         context_type: &str,
-    ) -> Result<WrapMiniscript, WasmMiniscriptError> {
+    ) -> Result<WrapMiniscript, WasmUtxoError> {
         let script = bitcoin::Script::from_bytes(script);
         match context_type {
             "tap" => Ok(WrapMiniscript::from(
-                Miniscript::<XOnlyPublicKey, Tap>::parse(script)
-                    .map_err(WasmMiniscriptError::from)?,
+                Miniscript::<XOnlyPublicKey, Tap>::parse(script).map_err(WasmUtxoError::from)?,
             )),
             "segwitv0" => Ok(WrapMiniscript::from(
-                Miniscript::<PublicKey, Segwitv0>::parse(script)
-                    .map_err(WasmMiniscriptError::from)?,
+                Miniscript::<PublicKey, Segwitv0>::parse(script).map_err(WasmUtxoError::from)?,
             )),
             "legacy" => Ok(WrapMiniscript::from(
-                Miniscript::<PublicKey, Legacy>::parse(script)
-                    .map_err(WasmMiniscriptError::from)?,
+                Miniscript::<PublicKey, Legacy>::parse(script).map_err(WasmUtxoError::from)?,
             )),
-            _ => Err(WasmMiniscriptError::new("Invalid context type")),
+            _ => Err(WasmUtxoError::new("Invalid context type")),
         }
     }
 }

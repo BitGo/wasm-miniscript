@@ -1,4 +1,4 @@
-use crate::error::WasmMiniscriptError;
+use crate::error::WasmUtxoError;
 use crate::try_into_js_value::TryIntoJsValue;
 use miniscript::bitcoin::secp256k1::{Secp256k1, Signing};
 use miniscript::bitcoin::ScriptBuf;
@@ -19,7 +19,7 @@ pub struct WrapDescriptor(pub(crate) WrapDescriptorEnum);
 
 #[wasm_bindgen]
 impl WrapDescriptor {
-    pub fn node(&self) -> Result<JsValue, WasmMiniscriptError> {
+    pub fn node(&self) -> Result<JsValue, WasmUtxoError> {
         Ok(match &self.0 {
             WrapDescriptorEnum::Derivable(desc, _) => desc.try_to_js_value()?,
             WrapDescriptorEnum::Definite(desc) => desc.try_to_js_value()?,
@@ -43,20 +43,20 @@ impl WrapDescriptor {
     }
 
     #[wasm_bindgen(js_name = atDerivationIndex)]
-    pub fn at_derivation_index(&self, index: u32) -> Result<WrapDescriptor, WasmMiniscriptError> {
+    pub fn at_derivation_index(&self, index: u32) -> Result<WrapDescriptor, WasmUtxoError> {
         match &self.0 {
             WrapDescriptorEnum::Derivable(desc, _keys) => {
                 let d = desc.at_derivation_index(index)?;
                 Ok(WrapDescriptor(WrapDescriptorEnum::Definite(d)))
             }
-            _ => Err(WasmMiniscriptError::new(
+            _ => Err(WasmUtxoError::new(
                 "Cannot derive from a definite descriptor",
             )),
         }
     }
 
     #[wasm_bindgen(js_name = descType)]
-    pub fn desc_type(&self) -> Result<JsValue, WasmMiniscriptError> {
+    pub fn desc_type(&self) -> Result<JsValue, WasmUtxoError> {
         (match &self.0 {
             WrapDescriptorEnum::Derivable(desc, _) => desc.desc_type(),
             WrapDescriptorEnum::Definite(desc) => desc.desc_type(),
@@ -66,38 +66,36 @@ impl WrapDescriptor {
     }
 
     #[wasm_bindgen(js_name = scriptPubkey)]
-    pub fn script_pubkey(&self) -> Result<Vec<u8>, WasmMiniscriptError> {
+    pub fn script_pubkey(&self) -> Result<Vec<u8>, WasmUtxoError> {
         match &self.0 {
             WrapDescriptorEnum::Definite(desc) => Ok(desc.script_pubkey().to_bytes()),
-            _ => Err(WasmMiniscriptError::new(
-                "Cannot encode a derivable descriptor",
-            )),
+            _ => Err(WasmUtxoError::new("Cannot encode a derivable descriptor")),
         }
     }
 
-    fn explicit_script(&self) -> Result<ScriptBuf, WasmMiniscriptError> {
+    fn explicit_script(&self) -> Result<ScriptBuf, WasmUtxoError> {
         match &self.0 {
             WrapDescriptorEnum::Definite(desc) => Ok(desc.explicit_script()?),
-            WrapDescriptorEnum::Derivable(_, _) => Err(WasmMiniscriptError::new(
-                "Cannot encode a derivable descriptor",
-            )),
-            WrapDescriptorEnum::String(_) => Err(WasmMiniscriptError::new(
-                "Cannot encode a string descriptor",
-            )),
+            WrapDescriptorEnum::Derivable(_, _) => {
+                Err(WasmUtxoError::new("Cannot encode a derivable descriptor"))
+            }
+            WrapDescriptorEnum::String(_) => {
+                Err(WasmUtxoError::new("Cannot encode a string descriptor"))
+            }
         }
     }
 
-    pub fn encode(&self) -> Result<Vec<u8>, WasmMiniscriptError> {
+    pub fn encode(&self) -> Result<Vec<u8>, WasmUtxoError> {
         Ok(self.explicit_script()?.to_bytes())
     }
 
     #[wasm_bindgen(js_name = toAsmString)]
-    pub fn to_asm_string(&self) -> Result<String, WasmMiniscriptError> {
+    pub fn to_asm_string(&self) -> Result<String, WasmUtxoError> {
         Ok(self.explicit_script()?.to_asm_string())
     }
 
     #[wasm_bindgen(js_name = maxWeightToSatisfy)]
-    pub fn max_weight_to_satisfy(&self) -> Result<u32, WasmMiniscriptError> {
+    pub fn max_weight_to_satisfy(&self) -> Result<u32, WasmUtxoError> {
         let weight = (match &self.0 {
             WrapDescriptorEnum::Derivable(desc, _) => desc.max_weight_to_satisfy(),
             WrapDescriptorEnum::Definite(desc) => desc.max_weight_to_satisfy(),
@@ -106,18 +104,18 @@ impl WrapDescriptor {
         weight
             .to_wu()
             .try_into()
-            .map_err(|_| WasmMiniscriptError::new("Weight exceeds u32"))
+            .map_err(|_| WasmUtxoError::new("Weight exceeds u32"))
     }
 
     fn from_string_derivable<C: Signing>(
         secp: &Secp256k1<C>,
         descriptor: &str,
-    ) -> Result<WrapDescriptor, WasmMiniscriptError> {
+    ) -> Result<WrapDescriptor, WasmUtxoError> {
         let (desc, keys) = Descriptor::parse_descriptor(secp, descriptor)?;
         Ok(WrapDescriptor(WrapDescriptorEnum::Derivable(desc, keys)))
     }
 
-    fn from_string_definite(descriptor: &str) -> Result<WrapDescriptor, WasmMiniscriptError> {
+    fn from_string_definite(descriptor: &str) -> Result<WrapDescriptor, WasmUtxoError> {
         let desc = Descriptor::<DefiniteDescriptorKey>::from_str(descriptor)?;
         Ok(WrapDescriptor(WrapDescriptorEnum::Definite(desc)))
     }
@@ -135,7 +133,7 @@ impl WrapDescriptor {
     ///   - "string": For descriptors with string placeholders
     ///
     /// # Returns
-    /// * `Result<WrapDescriptor, WasmMiniscriptError>` - The parsed descriptor or an error
+    /// * `Result<WrapDescriptor, WasmUtxoError>` - The parsed descriptor or an error
     ///
     /// # Example
     /// ```
@@ -145,10 +143,7 @@ impl WrapDescriptor {
     /// );
     /// ```
     #[wasm_bindgen(js_name = fromString, skip_typescript)]
-    pub fn from_string(
-        descriptor: &str,
-        pk_type: &str,
-    ) -> Result<WrapDescriptor, WasmMiniscriptError> {
+    pub fn from_string(descriptor: &str, pk_type: &str) -> Result<WrapDescriptor, WasmUtxoError> {
         match pk_type {
             "derivable" => WrapDescriptor::from_string_derivable(&Secp256k1::new(), descriptor),
             "definite" => WrapDescriptor::from_string_definite(descriptor),
@@ -156,7 +151,7 @@ impl WrapDescriptor {
                 let desc = Descriptor::<String>::from_str(descriptor)?;
                 Ok(WrapDescriptor(WrapDescriptorEnum::String(desc)))
             }
-            _ => Err(WasmMiniscriptError::new("Invalid descriptor type")),
+            _ => Err(WasmUtxoError::new("Invalid descriptor type")),
         }
     }
 
@@ -168,7 +163,7 @@ impl WrapDescriptor {
     /// * `descriptor` - A string containing the descriptor to parse
     ///
     /// # Returns
-    /// * `Result<WrapDescriptor, WasmMiniscriptError>` - The parsed descriptor or an error
+    /// * `Result<WrapDescriptor, WasmUtxoError>` - The parsed descriptor or an error
     ///
     /// # Example
     /// ```
@@ -183,12 +178,10 @@ impl WrapDescriptor {
     /// );
     /// ```
     #[wasm_bindgen(js_name = fromStringDetectType, skip_typescript)]
-    pub fn from_string_detect_type(
-        descriptor: &str,
-    ) -> Result<WrapDescriptor, WasmMiniscriptError> {
+    pub fn from_string_detect_type(descriptor: &str) -> Result<WrapDescriptor, WasmUtxoError> {
         let secp = Secp256k1::new();
         let (descriptor, _key_map) = Descriptor::parse_descriptor(&secp, descriptor)
-            .map_err(|_| WasmMiniscriptError::new("Invalid descriptor"))?;
+            .map_err(|_| WasmUtxoError::new("Invalid descriptor"))?;
         if descriptor.has_wildcard() {
             WrapDescriptor::from_string_derivable(&secp, &descriptor.to_string())
         } else {
@@ -208,7 +201,7 @@ impl fmt::Display for WrapDescriptor {
 }
 
 impl FromStr for WrapDescriptor {
-    type Err = WasmMiniscriptError;
+    type Err = WasmUtxoError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         WrapDescriptor::from_string_detect_type(s)
     }
