@@ -256,8 +256,21 @@ pub struct PsbtFixture {
     pub psbt_outputs: Vec<PsbtOutputFixture>,
 }
 
-// Output script fixture types
+impl PsbtFixture {
+    pub fn to_bitgo_psbt(
+        &self,
+        network: Network,
+    ) -> Result<crate::bitgo_psbt::BitGoPsbt, Box<dyn std::error::Error>> {
+        use base64::engine::{general_purpose::STANDARD as BASE64_STANDARD, Engine};
+        let psbt = crate::bitgo_psbt::BitGoPsbt::deserialize(
+            &BASE64_STANDARD.decode(&self.psbt_base64)?,
+            network,
+        )?;
+        Ok(psbt)
+    }
+}
 
+// Output script fixture types
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControlBlockEntry {

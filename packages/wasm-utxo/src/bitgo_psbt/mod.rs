@@ -140,23 +140,12 @@ mod tests {
     use super::*;
     use crate::fixed_script_wallet::{RootWalletKeys, WalletScripts};
     use crate::test_utils::fixtures;
-    use crate::{error::WasmUtxoError, fixed_script_wallet::Chain};
+    use crate::fixed_script_wallet::Chain;
     use base64::engine::{general_purpose::STANDARD as BASE64_STANDARD, Engine};
     use miniscript::bitcoin::bip32::Xpub;
     use miniscript::bitcoin::consensus::Decodable;
     use miniscript::bitcoin::Transaction;
     use std::str::FromStr;
-
-    fn psbt_from_base64_with_network(
-        s: &str,
-        network: Network,
-    ) -> Result<BitGoPsbt, WasmUtxoError> {
-        let psbt = BASE64_STANDARD
-            .decode(s.as_bytes())
-            .map_err(|_| WasmUtxoError::new("Invalid base64"))?;
-        BitGoPsbt::deserialize(&psbt, network)
-            .map_err(|e| WasmUtxoError::new(&format!("Invalid PSBT: {}", e)))
-    }
 
     crate::test_all_networks!(test_deserialize_invalid_bytes, network, {
         // Invalid PSBT bytes should fail with either consensus, PSBT, or network error
@@ -181,7 +170,7 @@ mod tests {
             format,
         )
         .unwrap();
-        match psbt_from_base64_with_network(&fixture.psbt_base64, network) {
+        match fixture.to_bitgo_psbt(network) {
             Ok(_) => {}
             Err(e) => panic!("Failed on network: {:?} with error: {:?}", network, e),
         }
@@ -550,11 +539,7 @@ mod tests {
             fixtures::SignatureState::Unsigned,
         )
         .unwrap();
-        let original_bytes = BASE64_STANDARD
-            .decode(&fixture.psbt_base64)
-            .expect("Failed to decode base64");
-        let psbt = BitGoPsbt::deserialize(&original_bytes, Network::Bitcoin)
-            .expect("Failed to deserialize PSBT");
+        let psbt = fixture.to_bitgo_psbt(Network::Bitcoin).expect("Failed to convert to BitGo PSBT");
 
         // Serialize should succeed
         let serialized = psbt.serialize();
