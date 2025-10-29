@@ -15,5 +15,3 @@ pub use address::{
 
 pub use networks::Network;
 pub use wasm::{WrapDescriptor, WrapMiniscript, WrapPsbt};
-
-pub use crate::fixed_script_wallet::*;

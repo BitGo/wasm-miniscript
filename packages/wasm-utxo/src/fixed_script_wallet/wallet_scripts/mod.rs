@@ -16,8 +16,7 @@ use crate::address::networks::OutputScriptSupport;
 use crate::bitcoin::bip32::{ChildNumber, DerivationPath};
 use crate::bitcoin::ScriptBuf;
 use crate::error::WasmUtxoError;
-use crate::fixed_script_wallet::wallet_keys::{to_pub_triple, PubTriple, XpubTriple};
-use crate::RootWalletKeys;
+use crate::fixed_script_wallet::wallet_keys::{to_pub_triple, PubTriple, RootWalletKeys, XpubTriple};
 use std::convert::TryFrom;
 use std::str::FromStr;
 

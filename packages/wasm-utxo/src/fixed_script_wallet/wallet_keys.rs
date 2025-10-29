@@ -94,7 +94,7 @@ impl RootWalletKeys {
 pub mod tests {
     use crate::bitcoin::bip32::{Xpriv, Xpub};
     use crate::bitcoin::hashes::{sha256, Hash};
-    use crate::RootWalletKeys;
+    use crate::fixed_script_wallet::RootWalletKeys;
 
     pub type XprivTriple = [Xpriv; 3];
 
