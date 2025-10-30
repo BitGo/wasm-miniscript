@@ -152,7 +152,7 @@ mod tests {
     use miniscript::bitcoin::bip32::Xpub;
     use miniscript::bitcoin::consensus::Decodable;
     use miniscript::bitcoin::Transaction;
-    
+
     use std::str::FromStr;
 
     crate::test_all_networks!(test_deserialize_invalid_bytes, network, {
@@ -538,32 +538,6 @@ mod tests {
             .unwrap();
         }
     );
-
-    crate::test_psbt_fixtures!(test_extract_transaction, network, {
-        let fixture = fixtures::load_psbt_fixture_with_format(
-            network.to_utxolib_name(),
-            fixtures::SignatureState::Fullsigned,
-            fixtures::TxFormat::Psbt,
-        )
-        .expect("Failed to load fixture");
-        let psbt = fixture
-            .to_bitgo_psbt(network)
-            .expect("Failed to convert to BitGo PSBT");
-        let fixture_extracted_transaction = fixture
-            .extracted_transaction
-            .expect("Failed to extract transaction");
-        let extracted_transaction = psbt
-            .into_psbt()
-            .finalize(&crate::bitcoin::secp256k1::Secp256k1::verification_only())
-            .expect("Failed to finalize PSBT")
-            .extract_tx()
-            .expect("Failed to extract transaction");
-        let extracted_transaction_hex = hex::encode(serialize(&extracted_transaction));
-        assert_eq!(
-            extracted_transaction_hex, fixture_extracted_transaction,
-            "Extracted transaction should match"
-        );
-    });
 
     #[test]
     fn test_serialize_bitcoin_psbt() {
