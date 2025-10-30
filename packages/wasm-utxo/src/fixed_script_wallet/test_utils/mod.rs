@@ -7,7 +7,7 @@ use super::wallet_scripts::{Chain, WalletScripts};
 use crate::bitcoin::bip32::{DerivationPath, Fingerprint, Xpriv, Xpub};
 use crate::bitcoin::psbt::{Input as PsbtInput, Output as PsbtOutput, Psbt};
 use crate::bitcoin::{Transaction, TxIn, TxOut};
-use crate::{Network, RootWalletKeys};
+use crate::{fixed_script_wallet::RootWalletKeys, Network};
 use std::collections::BTreeMap;
 use std::str::FromStr;
 

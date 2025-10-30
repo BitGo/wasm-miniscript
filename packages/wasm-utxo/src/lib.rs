@@ -1,8 +1,10 @@
 mod address;
+pub mod bitgo_psbt;
 mod error;
 pub mod fixed_script_wallet;
 mod networks;
-pub mod wasm;
+#[cfg(test)]
+mod test_utils;
 
 // re-export bitcoin from the miniscript crate
 // this package is transitioning to a all-purpose bitcoin package, so we want easy access
@@ -14,6 +16,5 @@ pub use address::{
 };
 
 pub use networks::Network;
+pub mod wasm;
 pub use wasm::{WrapDescriptor, WrapMiniscript, WrapPsbt};
-
-pub use crate::fixed_script_wallet::*;

@@ -16,8 +16,9 @@ use crate::address::networks::OutputScriptSupport;
 use crate::bitcoin::bip32::{ChildNumber, DerivationPath};
 use crate::bitcoin::ScriptBuf;
 use crate::error::WasmUtxoError;
-use crate::fixed_script_wallet::wallet_keys::{to_pub_triple, PubTriple, XpubTriple};
-use crate::RootWalletKeys;
+use crate::fixed_script_wallet::wallet_keys::{
+    to_pub_triple, PubTriple, RootWalletKeys, XpubTriple,
+};
 use std::convert::TryFrom;
 use std::str::FromStr;
 
@@ -204,12 +205,7 @@ pub fn derive_xpubs(
 
 #[cfg(test)]
 mod tests {
-    use miniscript::bitcoin::bip32::Xpub;
-    use miniscript::bitcoin::consensus::Decodable;
-    use miniscript::bitcoin::Transaction;
-
     use super::*;
-    use crate::fixed_script_wallet::test_utils::fixtures;
     use crate::fixed_script_wallet::wallet_keys::tests::get_test_wallet_keys;
     use crate::Network;
 
@@ -306,194 +302,6 @@ mod tests {
         for chain in Chain::all() {
             test_build_multisig_chain_with(&keys, *chain);
         }
-    }
-
-    fn parse_derivation_path(path: &str) -> Result<(u32, u32), String> {
-        let parts: Vec<&str> = path.split('/').collect();
-        if parts.len() != 4 {
-            return Err(format!("Invalid path length: {}", path));
-        }
-        let chain = u32::from_str(parts[2]).map_err(|e| e.to_string())?;
-        let index = u32::from_str(parts[3]).map_err(|e| e.to_string())?;
-        Ok((chain, index))
-    }
-
-    fn parse_fixture_paths(
-        fixture_input: &fixtures::PsbtInputFixture,
-    ) -> Result<(Chain, u32), String> {
-        let bip32_path = match fixture_input {
-            fixtures::PsbtInputFixture::P2sh(i) => i.bip32_derivation[0].path.to_string(),
-            fixtures::PsbtInputFixture::P2shP2pk(_) => {
-                // P2shP2pk doesn't have derivation paths in the fixture, use a dummy path
-                return Err("P2shP2pk does not use chain-based derivation".to_string());
-            }
-            fixtures::PsbtInputFixture::P2shP2wsh(i) => i.bip32_derivation[0].path.to_string(),
-            fixtures::PsbtInputFixture::P2wsh(i) => i.bip32_derivation[0].path.to_string(),
-            fixtures::PsbtInputFixture::P2trLegacy(i) => i.tap_bip32_derivation[0].path.to_string(),
-            fixtures::PsbtInputFixture::P2trMusig2ScriptPath(i) => {
-                i.tap_bip32_derivation[0].path.to_string()
-            }
-            fixtures::PsbtInputFixture::P2trMusig2KeyPath(i) => {
-                i.tap_bip32_derivation[0].path.to_string()
-            }
-        };
-        let (chain_num, index) = parse_derivation_path(&bip32_path).expect("Failed to parse path");
-        let chain = Chain::try_from(chain_num).expect("Invalid chain");
-        Ok((chain, index))
-    }
-
-    fn find_input_with_script_type<'a>(
-        fixture: &'a fixtures::PsbtFixture,
-        script_type: &str,
-    ) -> Result<(usize, &'a fixtures::PsbtInputFixture), String> {
-        let result = fixture
-            .psbt_inputs
-            .iter()
-            .enumerate()
-            .filter(|(_, input)| match input {
-                fixtures::PsbtInputFixture::P2shP2pk(_) => script_type == "p2shP2pk",
-                fixtures::PsbtInputFixture::P2sh(_) => script_type == "p2sh",
-                fixtures::PsbtInputFixture::P2shP2wsh(_) => script_type == "p2shP2wsh",
-                fixtures::PsbtInputFixture::P2wsh(_) => script_type == "p2wsh",
-                fixtures::PsbtInputFixture::P2trLegacy(_) => script_type == "p2tr",
-                fixtures::PsbtInputFixture::P2trMusig2ScriptPath(_) => script_type == "p2trMusig2",
-                fixtures::PsbtInputFixture::P2trMusig2KeyPath(_) => script_type == "taprootKeypath",
-            })
-            .collect::<Vec<_>>();
-        if result.len() != 1 {
-            return Err(format!(
-                "Expected 1 input with script type {}, got {}",
-                script_type,
-                result.len()
-            ));
-        }
-        Ok(result[0])
-    }
-
-    fn get_output_script_from_non_witness_utxo(
-        input: &fixtures::P2shInput,
-        index: usize,
-    ) -> String {
-        use miniscript::bitcoin::hashes::hex::FromHex;
-        let tx_bytes = Vec::<u8>::from_hex(&input.non_witness_utxo).expect("Failed to decode hex");
-        let prev_tx: Transaction = Decodable::consensus_decode(&mut tx_bytes.as_slice())
-            .expect("Failed to decode non-witness utxo");
-        let output = &prev_tx.output[index];
-        output.script_pubkey.to_hex_string()
-    }
-
-    fn test_wallet_script_type(script_type: &str) -> Result<(), String> {
-        let fixture = fixtures::load_psbt_fixture("bitcoin", fixtures::SignatureState::Fullsigned)
-            .expect("Failed to load fixture");
-        let xprvs = fixtures::parse_wallet_keys(&fixture).expect("Failed to parse wallet keys");
-        let secp = crate::bitcoin::secp256k1::Secp256k1::new();
-        let wallet_keys = RootWalletKeys::new(
-            xprvs
-                .iter()
-                .map(|x| Xpub::from_priv(&secp, x))
-                .collect::<Vec<_>>()
-                .try_into()
-                .expect("Failed to convert to XpubTriple"),
-        );
-
-        let (input_index, input_fixture) = find_input_with_script_type(&fixture, script_type)
-            .expect("Failed to find input with script type");
-
-        let (chain, index) =
-            parse_fixture_paths(input_fixture).expect("Failed to parse fixture paths");
-        let scripts = WalletScripts::from_wallet_keys(
-            &wallet_keys,
-            chain,
-            index,
-            &Network::Bitcoin.output_script_support(),
-        )
-        .expect("Failed to create wallet scripts");
-
-        // Use the new helper methods for validation
-        match (scripts, input_fixture) {
-            (WalletScripts::P2sh(scripts), fixtures::PsbtInputFixture::P2sh(fixture_input)) => {
-                let vout = fixture.inputs[input_index].index as usize;
-                let output_script = get_output_script_from_non_witness_utxo(fixture_input, vout);
-                fixture_input
-                    .assert_matches_wallet_scripts(&scripts, &output_script)
-                    .expect("P2sh validation failed");
-            }
-            (
-                WalletScripts::P2shP2wsh(scripts),
-                fixtures::PsbtInputFixture::P2shP2wsh(fixture_input),
-            ) => {
-                fixture_input
-                    .assert_matches_wallet_scripts(&scripts, &fixture_input.witness_utxo.script)
-                    .expect("P2shP2wsh validation failed");
-            }
-            (WalletScripts::P2wsh(scripts), fixtures::PsbtInputFixture::P2wsh(fixture_input)) => {
-                fixture_input
-                    .assert_matches_wallet_scripts(&scripts, &fixture_input.witness_utxo.script)
-                    .expect("P2wsh validation failed");
-            }
-            (
-                WalletScripts::P2trLegacy(scripts),
-                fixtures::PsbtInputFixture::P2trLegacy(fixture_input),
-            ) => {
-                fixture_input
-                    .assert_matches_wallet_scripts(&scripts)
-                    .expect("P2trLegacy validation failed");
-            }
-            (
-                WalletScripts::P2trMusig2(scripts),
-                fixtures::PsbtInputFixture::P2trMusig2ScriptPath(fixture_input),
-            ) => {
-                fixture_input
-                    .assert_matches_wallet_scripts(&scripts)
-                    .expect("P2trMusig2ScriptPath validation failed");
-            }
-            (
-                WalletScripts::P2trMusig2(scripts),
-                fixtures::PsbtInputFixture::P2trMusig2KeyPath(fixture_input),
-            ) => {
-                fixture_input
-                    .assert_matches_wallet_scripts(&scripts)
-                    .expect("P2trMusig2KeyPath validation failed");
-            }
-            (scripts, input_fixture) => {
-                return Err(format!(
-                    "Mismatched input and scripts: {:?} and {:?}",
-                    scripts, input_fixture
-                ));
-            }
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_p2sh_script_generation_from_fixture() {
-        test_wallet_script_type("p2sh").unwrap()
-    }
-
-    #[test]
-    fn test_p2sh_p2wsh_script_generation_from_fixture() {
-        test_wallet_script_type("p2shP2wsh").unwrap();
-    }
-
-    #[test]
-    fn test_p2wsh_script_generation_from_fixture() {
-        test_wallet_script_type("p2wsh").unwrap();
-    }
-
-    #[test]
-    fn test_p2tr_script_generation_from_fixture() {
-        test_wallet_script_type("p2tr").unwrap();
-    }
-
-    #[test]
-    fn test_p2tr_musig2_script_path_generation_from_fixture() {
-        test_wallet_script_type("p2trMusig2").unwrap();
-    }
-
-    #[test]
-    fn test_p2tr_musig2_key_path_spend_script_generation_from_fixture() {
-        test_wallet_script_type("taprootKeypath").unwrap();
     }
 
     #[test]
