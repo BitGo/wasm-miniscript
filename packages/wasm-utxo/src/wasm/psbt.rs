@@ -1,7 +1,7 @@
-use crate::descriptor::WrapDescriptorEnum;
 use crate::error::WasmUtxoError;
-use crate::try_into_js_value::TryIntoJsValue;
-use crate::WrapDescriptor;
+use crate::wasm::descriptor::WrapDescriptorEnum;
+use crate::wasm::try_into_js_value::TryIntoJsValue;
+use crate::wasm::WrapDescriptor;
 use miniscript::bitcoin::bip32::Fingerprint;
 use miniscript::bitcoin::secp256k1::{Secp256k1, Signing};
 use miniscript::bitcoin::{bip32, psbt, PublicKey, XOnlyPublicKey};
@@ -173,7 +173,7 @@ impl Clone for WrapPsbt {
 
 #[cfg(test)]
 mod tests {
-    use crate::psbt::SingleKeySigner;
+    use crate::wasm::psbt::SingleKeySigner;
     use base64::prelude::*;
     use miniscript::bitcoin::bip32::{DerivationPath, Fingerprint, KeySource};
     use miniscript::bitcoin::psbt::{SigningKeys, SigningKeysMap};

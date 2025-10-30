@@ -1,5 +1,5 @@
 use crate::error::WasmUtxoError;
-use crate::try_into_js_value::TryIntoJsValue;
+use crate::wasm::try_into_js_value::TryIntoJsValue;
 use miniscript::bitcoin::{PublicKey, XOnlyPublicKey};
 use miniscript::{bitcoin, Legacy, Miniscript, Segwitv0, Tap};
 use std::fmt;

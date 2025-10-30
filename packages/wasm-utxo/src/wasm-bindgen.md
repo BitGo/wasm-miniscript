@@ -8,41 +8,69 @@ Since `wasm-bindgen` flattens all exports to a single module by default, we use 
 
 ### Rust Side: Namespace Structs
 
+All WASM bindings are located in the `src/wasm/` module, separate from the core implementation.
+
 Create empty structs with `#[wasm_bindgen]` to serve as namespaces, then implement static methods:
 
 ```rust
-// address/mod.rs
+// wasm/address.rs
+
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsValue;
+use crate::address::networks::{
+    to_output_script_with_coin, from_output_script_with_coin_and_format,
+};
 
 #[wasm_bindgen]
 pub struct AddressNamespace;
 
 #[wasm_bindgen]
 impl AddressNamespace {
-    pub fn to_output_script_with_coin(address: &str, coin: &str) -> Result<Vec<u8>, WasmError> {
-        // implementation
+    pub fn to_output_script_with_coin(
+        address: &str,
+        coin: &str,
+    ) -> Result<Vec<u8>, JsValue> {
+        to_output_script_with_coin(address, coin)
+            .map(|script| script.to_bytes())
+            .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     pub fn from_output_script_with_coin(
         script: &[u8],
         coin: &str,
         format: Option<String>,
-    ) -> Result<String, WasmError> {
+    ) -> Result<String, JsValue> {
         // implementation
     }
 }
 ```
 
+The namespace structs are exported from `src/wasm/mod.rs`:
+
+```rust
+// wasm/mod.rs
+
+pub use address::AddressNamespace;
+pub use utxolib_compat::UtxolibCompatNamespace;
+pub use fixed_script_wallet::FixedScriptWalletNamespace;
+// ... other namespace exports
+```
+
 ### Key Conventions
 
-1. **Naming**: Use `*Namespace` suffix for namespace structs (e.g., `AddressNamespace`, `UtxolibCompatNamespace`)
+1. **Location**: All WASM bindings are in the `src/wasm/` module, separate from core implementation
 
-2. **Structure**: Empty structs with no fields - they exist purely for organization
+2. **Naming**: Use `*Namespace` suffix for namespace structs (e.g., `AddressNamespace`, `UtxolibCompatNamespace`)
 
-3. **Methods**: All functions are static methods on the namespace struct
+3. **Structure**: Empty structs with no fields - they exist purely for organization
 
-4. **Case**: Use `snake_case` for method names (Rust convention) - they'll be available as both `snake_case` and `camelCase` in JavaScript
+4. **Methods**: All functions are static methods on the namespace struct
 
-5. **Error Handling**: Return `Result<T, E>` types - `wasm-bindgen` automatically converts these to JavaScript exceptions
+5. **Case**: Use `snake_case` for method names (Rust convention) - they'll be available as both `snake_case` and `camelCase` in JavaScript
+
+6. **Error Handling**: Return `Result<T, JsValue>` types - `wasm-bindgen` automatically converts these to JavaScript exceptions
+
+7. **Separation**: WASM binding layer delegates to core implementation in domain modules (e.g., `src/address/`, `src/fixed_script_wallet/`)
 
 ### Generated TypeScript
 
@@ -76,15 +104,17 @@ The wrapper layer:
 
 ### Example Flow
 
-1. **Rust**: Define `AddressNamespace` struct with static methods
-2. **wasm-bindgen**: Generates `AddressNamespace` class in `wasm_utxo.d.ts`
-3. **TypeScript Wrapper**: `address.ts` wraps it with precise types
-4. **Main Export**: `index.ts` exports it as `export * as address from "./address"`
+1. **Core Implementation**: Business logic in domain modules (e.g., `src/address/networks.rs`)
+2. **WASM Bindings**: Define `AddressNamespace` struct with static methods in `src/wasm/address.rs` that calls into core implementation
+3. **Module Export**: Export namespace from `src/wasm/mod.rs`
+4. **wasm-bindgen Generation**: Generates `AddressNamespace` class in `wasm/wasm_utxo.d.ts`
+5. **TypeScript Wrapper**: `js/address.ts` wraps it with precise types
+6. **Main Export**: `js/index.ts` exports it as `export * as address from "./address"`
 
-This three-layer approach gives us:
+This layered approach gives us:
 
-- Clear organization in Rust
-- Automatic WASM bindings
+- Clear separation between core implementation and WASM bindings
+- Automatic WASM bindings generation
 - Type-safe, well-documented TypeScript API
 
 ## Type Mapping
@@ -103,14 +133,18 @@ Common Rust ↔ JavaScript type mappings:
 
 ## Best Practices
 
-1. **Keep namespace structs empty** - They're purely for organization
+1. **Separate bindings from implementation** - Core logic goes in domain modules (`src/address/`, `src/fixed_script_wallet/`), WASM bindings go in `src/wasm/`
 
-2. **Use descriptive namespace names** - Clear what domain they cover (e.g., `AddressNamespace`, `PsbtNamespace`)
+2. **Keep namespace structs empty** - They're purely for organization
 
-3. **Return `Result` types** - Let `wasm-bindgen` handle error conversion to JavaScript exceptions
+3. **Use descriptive namespace names** - Clear what domain they cover (e.g., `AddressNamespace`, `PsbtNamespace`)
 
-4. **Avoid complex types in signatures** - Stick to primitives and byte arrays when possible; use `JsValue` for complex types
+4. **Thin binding layer** - WASM methods should delegate to core implementation, only handling type conversions
 
-5. **Document with Rust doc comments** - They'll appear in the generated TypeScript
+5. **Return `Result<T, JsValue>` types** - Let `wasm-bindgen` handle error conversion to JavaScript exceptions
 
-6. **Coordinate with TypeScript wrappers** - Keep the wrapper layer in mind when designing the Rust API
+6. **Avoid complex types in signatures** - Stick to primitives and byte arrays when possible; use `JsValue` for complex types
+
+7. **Document with Rust doc comments** - They'll appear in the generated TypeScript
+
+8. **Coordinate with TypeScript wrappers** - Keep the wrapper layer in mind when designing the Rust API
