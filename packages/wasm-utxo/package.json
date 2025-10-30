@@ -26,7 +26,9 @@
     "./dist/node/js/index.js": "./dist/browser/js/index.js"
   },
   "scripts": {
-    "test": "mocha --recursive test",
+    "test": "npm run test:mocha && npm run test:wasm-pack",
+    "test:mocha": "mocha --recursive test",
+    "test:wasm-pack": "npm run test:wasm-pack-node && npm run test:wasm-pack-chrome",
     "test:wasm-pack-node": "wasm-pack test --node",
     "test:wasm-pack-chrome": "wasm-pack test --headless --chrome",
     "build:wasm": "make js/wasm/ && make dist/node/js/wasm/ && make dist/browser/js/wasm/",

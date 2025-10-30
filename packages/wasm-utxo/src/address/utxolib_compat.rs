@@ -1,8 +1,6 @@
 /// Helper structs for compatibility with npm @bitgo/utxo-lib
 /// Long-term we should not use the `Network` objects from @bitgo/utxo-lib any longer,
 /// but for now we need to keep this compatibility layer.
-use wasm_bindgen::JsValue;
-
 use crate::address::networks::{AddressFormat, OutputScriptSupport};
 use crate::address::{bech32, cashaddr, Base58CheckCodec};
 use crate::bitcoin::{Script, ScriptBuf};
@@ -30,12 +28,6 @@ pub struct UtxolibNetwork {
 }
 
 impl UtxolibNetwork {
-    /// Parse a UtxolibNetwork object from a JavaScript value
-    pub fn from_js_value(js_network: &JsValue) -> Result<Self> {
-        use crate::try_from_js_value::TryFromJsValue;
-        UtxolibNetwork::try_from_js_value(js_network)
-            .map_err(|e| AddressError::InvalidAddress(e.to_string()))
-    }
     pub fn output_script_support(&self) -> OutputScriptSupport {
         let segwit = self.bech32.is_some();
 
@@ -139,65 +131,4 @@ pub fn to_output_script_with_network(address: &str, network: &UtxolibNetwork) ->
         "Could not decode address with any available codec: {}",
         address
     )))
-}
-
-// WASM bindings for utxolib-compatible address functions
-use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-pub struct UtxolibCompatNamespace;
-
-#[wasm_bindgen]
-impl UtxolibCompatNamespace {
-    /// Convert output script to address string
-    ///
-    /// # Arguments
-    /// * `script` - The output script as a byte array
-    /// * `network` - The UtxolibNetwork object from JavaScript
-    /// * `format` - Optional address format: "default" or "cashaddr" (only applicable for Bitcoin Cash and eCash)
-    #[wasm_bindgen]
-    pub fn from_output_script(
-        script: &[u8],
-        network: JsValue,
-        format: Option<String>,
-    ) -> std::result::Result<String, JsValue> {
-        let network = UtxolibNetwork::from_js_value(&network)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-        let script_obj = Script::from_bytes(script);
-
-        let format_str = format.as_deref();
-        let address_format = AddressFormat::from_optional_str(format_str)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-        from_output_script_with_network(script_obj, &network, address_format)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
-    }
-
-    /// Convert address string to output script
-    ///
-    /// # Arguments
-    /// * `address` - The address string
-    /// * `network` - The UtxolibNetwork object from JavaScript
-    /// * `format` - Optional address format (currently unused for decoding as all formats are accepted)
-    #[wasm_bindgen]
-    pub fn to_output_script(
-        address: &str,
-        network: JsValue,
-        format: Option<String>,
-    ) -> std::result::Result<Vec<u8>, JsValue> {
-        let network = UtxolibNetwork::from_js_value(&network)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-        // Validate format parameter even though we don't use it for decoding
-        if let Some(fmt) = format {
-            let format_str = Some(fmt.as_str());
-            AddressFormat::from_optional_str(format_str)
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        }
-
-        to_output_script_with_network(address, &network)
-            .map(|script| script.to_bytes())
-            .map_err(|e| JsValue::from_str(&e.to_string()))
-    }
 }

@@ -5,6 +5,11 @@ This project is the successor of the Javascript `utxo-lib` package.
 It provides WASM bindings for the `rust-bitcoin` and `rust-miniscript` crates
 that help verify and co-sign transactions built by the BitGo Wallet Platform API.
 
+## Documentation
+
+- **[`src/wasm-bindgen.md`](src/wasm-bindgen.md)** - Guide for creating WASM bindings using the namespace pattern
+- **[`js/README.md`](js/README.md)** - TypeScript wrapper layer architecture and best practices
+
 ## Status
 
 This project is under active development.

@@ -14,6 +14,7 @@ use super::{
 };
 use crate::bitcoin::Script;
 use crate::networks::Network;
+use miniscript::bitcoin::WitnessVersion;
 
 /// Get codecs for decoding addresses for a given network.
 /// Returns multiple codecs to try in order (Base58Check, Bech32, CashAddr, etc.)
@@ -300,41 +301,6 @@ pub fn from_output_script_with_coin_and_format(
     let network = Network::from_coin_name(coin)
         .ok_or_else(|| AddressError::InvalidAddress(format!("Unknown coin: {}", coin)))?;
     from_output_script_with_network_and_format(script, network, format)
-}
-
-use miniscript::bitcoin::WitnessVersion;
-// WASM bindings
-use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-pub struct AddressNamespace;
-
-#[wasm_bindgen]
-impl AddressNamespace {
-    #[wasm_bindgen]
-    pub fn to_output_script_with_coin(
-        address: &str,
-        coin: &str,
-    ) -> std::result::Result<Vec<u8>, JsValue> {
-        to_output_script_with_coin(address, coin)
-            .map(|script| script.to_bytes())
-            .map_err(|e| JsValue::from_str(&e.to_string()))
-    }
-
-    #[wasm_bindgen]
-    pub fn from_output_script_with_coin(
-        script: &[u8],
-        coin: &str,
-        format: Option<String>,
-    ) -> std::result::Result<String, JsValue> {
-        let script_obj = Script::from_bytes(script);
-        let format_str = format.as_deref();
-        let address_format = AddressFormat::from_optional_str(format_str)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-        from_output_script_with_coin_and_format(script_obj, coin, address_format)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
-    }
 }
 
 #[cfg(test)]

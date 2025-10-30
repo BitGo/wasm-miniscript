@@ -1,5 +1,5 @@
 use crate::error::WasmUtxoError;
-use crate::try_into_js_value::TryIntoJsValue;
+use crate::wasm::try_into_js_value::TryIntoJsValue;
 use miniscript::bitcoin::secp256k1::{Secp256k1, Signing};
 use miniscript::bitcoin::ScriptBuf;
 use miniscript::descriptor::KeyMap;
@@ -137,6 +137,7 @@ impl WrapDescriptor {
     ///
     /// # Example
     /// ```
+    /// use wasm_utxo::WrapDescriptor;
     /// let desc = WrapDescriptor::from_string(
     ///   "pk(xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8/*)",
     ///   "derivable"
@@ -167,6 +168,7 @@ impl WrapDescriptor {
     ///
     /// # Example
     /// ```
+    /// use wasm_utxo::WrapDescriptor;
     /// // Will be parsed as definite since it has no wildcards
     /// let desc = WrapDescriptor::from_string_detect_type(
     ///   "pk(02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5)"
@@ -222,7 +224,7 @@ mod tests {
         assert!(matches!(
             desc,
             WrapDescriptor {
-                0: crate::descriptor::WrapDescriptorEnum::Definite(_),
+                0: crate::wasm::descriptor::WrapDescriptorEnum::Definite(_),
             }
         ));
     }

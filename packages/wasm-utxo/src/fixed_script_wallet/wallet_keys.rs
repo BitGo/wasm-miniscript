@@ -4,35 +4,10 @@ use std::str::FromStr;
 use crate::bitcoin::bip32::{ChildNumber, DerivationPath};
 use crate::bitcoin::{bip32::Xpub, secp256k1::Secp256k1, CompressedPublicKey};
 use crate::error::WasmUtxoError;
-use wasm_bindgen::JsValue;
-
-use super::bip32interface::xpub_from_bip32interface;
 
 pub type XpubTriple = [Xpub; 3];
 
 pub type PubTriple = [CompressedPublicKey; 3];
-
-pub fn xpub_triple_from_jsvalue(keys: &JsValue) -> Result<XpubTriple, WasmUtxoError> {
-    let keys_array = js_sys::Array::from(keys);
-    if keys_array.length() != 3 {
-        return Err(WasmUtxoError::new("Expected exactly 3 xpub keys"));
-    }
-
-    let key_strings: Result<[String; 3], _> = (0..3)
-        .map(|i| {
-            keys_array
-                .get(i)
-                .as_string()
-                .ok_or_else(|| WasmUtxoError::new(&format!("Key at index {} is not a string", i)))
-        })
-        .collect::<Result<Vec<_>, _>>()
-        .and_then(|v| {
-            v.try_into()
-                .map_err(|_| WasmUtxoError::new("Failed to convert to array"))
-        });
-
-    xpub_triple_from_strings(&key_strings?)
-}
 
 pub fn xpub_triple_from_strings(xpub_strings: &[String; 3]) -> Result<XpubTriple, WasmUtxoError> {
     let xpubs: Result<Vec<Xpub>, _> = xpub_strings
@@ -113,113 +88,6 @@ impl RootWalletKeys {
             .try_into()
             .map_err(|_| WasmUtxoError::new("Expected exactly 3 derived xpubs"))
     }
-
-    pub(crate) fn from_jsvalue(keys: &JsValue) -> Result<RootWalletKeys, WasmUtxoError> {
-        // Check if keys is an array (xpub strings) or an object (WalletKeys/RootWalletKeys)
-        if js_sys::Array::is_array(keys) {
-            // Handle array of xpub strings
-            let xpubs = xpub_triple_from_jsvalue(keys)?;
-            Ok(RootWalletKeys::new_with_derivation_prefixes(
-                xpubs,
-                [
-                    DerivationPath::from_str("m/0/0").unwrap(),
-                    DerivationPath::from_str("m/0/0").unwrap(),
-                    DerivationPath::from_str("m/0/0").unwrap(),
-                ],
-            ))
-        } else if keys.is_object() {
-            // Handle WalletKeys/RootWalletKeys object
-            let obj = js_sys::Object::from(keys.clone());
-
-            // Get the triple property
-            let triple = js_sys::Reflect::get(&obj, &JsValue::from_str("triple"))
-                .map_err(|_| WasmUtxoError::new("Failed to get 'triple' property"))?;
-
-            if !js_sys::Array::is_array(&triple) {
-                return Err(WasmUtxoError::new("'triple' property must be an array"));
-            }
-
-            let triple_array = js_sys::Array::from(&triple);
-            if triple_array.length() != 3 {
-                return Err(WasmUtxoError::new("'triple' must contain exactly 3 keys"));
-            }
-
-            // Extract xpubs from BIP32Interface objects
-            let xpubs: XpubTriple = (0..3)
-                .map(|i| {
-                    let bip32_key = triple_array.get(i);
-                    xpub_from_bip32interface(&bip32_key)
-                })
-                .collect::<Result<Vec<_>, _>>()?
-                .try_into()
-                .map_err(|_| WasmUtxoError::new("Failed to convert to array"))?;
-
-            // Try to get derivationPrefixes if present (for RootWalletKeys)
-            let derivation_prefixes =
-                js_sys::Reflect::get(&obj, &JsValue::from_str("derivationPrefixes"))
-                    .ok()
-                    .and_then(|prefixes| {
-                        if prefixes.is_undefined() || prefixes.is_null() {
-                            return None;
-                        }
-
-                        if !js_sys::Array::is_array(&prefixes) {
-                            return None;
-                        }
-
-                        let prefixes_array = js_sys::Array::from(&prefixes);
-                        if prefixes_array.length() != 3 {
-                            return None;
-                        }
-
-                        let prefix_strings: Result<[String; 3], _> = (0..3)
-                            .map(|i| {
-                                prefixes_array
-                                    .get(i)
-                                    .as_string()
-                                    .ok_or_else(|| WasmUtxoError::new("Prefix is not a string"))
-                            })
-                            .collect::<Result<Vec<_>, _>>()
-                            .and_then(|v| {
-                                v.try_into()
-                                    .map_err(|_| WasmUtxoError::new("Failed to convert to array"))
-                            });
-
-                        prefix_strings.ok()
-                    });
-
-            // Convert prefix strings to DerivationPath
-            let derivation_paths = if let Some(prefixes) = derivation_prefixes {
-                prefixes
-                    .iter()
-                    .map(|p| {
-                        // Remove leading 'm/' if present and add it back
-                        let p = p.strip_prefix("m/").unwrap_or(p);
-                        DerivationPath::from_str(&format!("m/{}", p)).map_err(|e| {
-                            WasmUtxoError::new(&format!("Invalid derivation prefix: {}", e))
-                        })
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-                    .try_into()
-                    .map_err(|_| WasmUtxoError::new("Failed to convert derivation paths"))?
-            } else {
-                [
-                    DerivationPath::from_str("m/0/0").unwrap(),
-                    DerivationPath::from_str("m/0/0").unwrap(),
-                    DerivationPath::from_str("m/0/0").unwrap(),
-                ]
-            };
-
-            Ok(RootWalletKeys::new_with_derivation_prefixes(
-                xpubs,
-                derivation_paths,
-            ))
-        } else {
-            Err(WasmUtxoError::new(
-                "Expected array of xpub strings or WalletKeys object",
-            ))
-        }
-    }
 }
 
 #[cfg(test)]
@@ -265,7 +133,7 @@ pub mod tests {
 pub mod wasm_tests {
     use super::tests::get_test_wallet_xprvs;
     use crate::bitcoin::bip32::Xpub;
-    use crate::RootWalletKeys;
+    use crate::wasm::wallet_keys_helpers::root_wallet_keys_from_jsvalue;
     use wasm_bindgen::JsValue;
     use wasm_bindgen_test::*;
 
@@ -288,7 +156,7 @@ pub mod wasm_tests {
         }
 
         // Test from_jsvalue with actual JsValue
-        let result = RootWalletKeys::from_jsvalue(&js_array.into());
+        let result = root_wallet_keys_from_jsvalue(&js_array.into());
         assert!(result.is_ok());
 
         let wallet_keys = result.unwrap();
@@ -309,7 +177,7 @@ pub mod wasm_tests {
             js_array.push(&JsValue::from_str(&xpub_str));
         }
 
-        let result = RootWalletKeys::from_jsvalue(&js_array.into());
+        let result = root_wallet_keys_from_jsvalue(&js_array.into());
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
@@ -333,7 +201,7 @@ pub mod wasm_tests {
             &Xpub::from_priv(&secp, &xpubs[0]).to_string(),
         ));
 
-        let result = RootWalletKeys::from_jsvalue(&js_array.into());
+        let result = root_wallet_keys_from_jsvalue(&js_array.into());
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
@@ -349,7 +217,7 @@ pub mod wasm_tests {
         js_array.push(&JsValue::from_str("also-not-valid"));
         js_array.push(&JsValue::from_str("still-not-valid"));
 
-        let result = RootWalletKeys::from_jsvalue(&js_array.into());
+        let result = root_wallet_keys_from_jsvalue(&js_array.into());
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -365,7 +233,7 @@ pub mod wasm_tests {
         js_array.push(&JsValue::from_str("xpub2"));
         js_array.push(&JsValue::from_str("xpub3"));
 
-        let result = RootWalletKeys::from_jsvalue(&js_array.into());
+        let result = root_wallet_keys_from_jsvalue(&js_array.into());
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -381,7 +249,7 @@ pub mod wasm_tests {
         js_array.push(&JsValue::UNDEFINED);
         js_array.push(&JsValue::from_bool(true));
 
-        let result = RootWalletKeys::from_jsvalue(&js_array.into());
+        let result = root_wallet_keys_from_jsvalue(&js_array.into());
         assert!(result.is_err());
     }
 }

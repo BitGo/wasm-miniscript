@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use crate::bitcoin::bip32::Xpub;
 use crate::error::WasmUtxoError;
-use crate::try_from_js_value::{get_buffer_field, get_field, get_nested_field};
+use crate::wasm::try_from_js_value::{get_buffer_field, get_field, get_nested_field};
 use wasm_bindgen::JsValue;
 
 fn try_xpub_from_bip32_properties(bip32_key: &JsValue) -> Result<Xpub, WasmUtxoError> {
