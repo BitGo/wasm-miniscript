@@ -1,0 +1,13 @@
+person: None
+├─ name: John Doe
+├─ age: 35u8
+├─ address: None
+│  ├─ street: 123 Main St
+│  ├─ city: Anytown
+│  └─ zip: 12345u16
+├─ phones: None
+│  ├─ home: 555-1234
+│  └─ work: 555-5678
+└─ account: None
+   ├─ number: 9876543210123456
+   └─ balance: 5000i32

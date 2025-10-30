@@ -9,6 +9,7 @@ that help verify and co-sign transactions built by the BitGo Wallet Platform API
 
 - **[`src/wasm-bindgen.md`](src/wasm-bindgen.md)** - Guide for creating WASM bindings using the namespace pattern
 - **[`js/README.md`](js/README.md)** - TypeScript wrapper layer architecture and best practices
+- **[`cli/README.md`](cli/README.md)** - Command-line interface for address and PSBT operations
 
 ## Status
 
