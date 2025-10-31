@@ -269,6 +269,26 @@ impl PsbtFixture {
         )?;
         Ok(psbt)
     }
+
+    pub fn find_input_with_script_type(
+        &self,
+        script_type: ScriptType,
+    ) -> Result<(usize, &PsbtInputFixture), String> {
+        let result = self
+            .psbt_inputs
+            .iter()
+            .enumerate()
+            .filter(|(_, input)| script_type.matches_fixture(input))
+            .collect::<Vec<_>>();
+        if result.len() != 1 {
+            return Err(format!(
+                "Expected 1 input with script type {}, got {}",
+                script_type.as_str(),
+                result.len()
+            ));
+        }
+        Ok(result[0])
+    }
 }
 
 // Output script fixture types
@@ -729,20 +749,22 @@ impl ScriptType {
 }
 
 /// Macro for testing PSBT fixtures across all mainnet networks (excluding testnets and BSV)
+/// and both transaction formats (Psbt and PsbtLite)
 ///
 /// This macro generates test cases for mainnet networks only: Bitcoin, BitcoinCash, Ecash,
-/// BitcoinGold, Dash, Dogecoin, Litecoin, and Zcash.
+/// BitcoinGold, Dash, Dogecoin, Litecoin, and Zcash, combined with both TxFormat variants.
+/// This creates a cartesian product of 8 networks × 2 formats = 16 test cases.
 ///
 /// # Example
 /// ```rust,no_run
-/// test_psbt_fixtures!(test_my_feature, network, {
+/// test_psbt_fixtures!(test_my_feature, network, format, {
 ///     let fixture = load_psbt_fixture_with_network(network, SignatureState::Fullsigned).unwrap();
-///     // ... test logic here
+///     // ... test logic using both network and format
 /// });
 /// ```
 #[macro_export]
 macro_rules! test_psbt_fixtures {
-    ($test_name:ident, $network:ident, $body:block) => {
+    ($test_name:ident, $network:ident, $format:ident, $body:block) => {
         #[rstest::rstest]
         #[case::bitcoin($crate::Network::Bitcoin)]
         #[case::bitcoin_cash($crate::Network::BitcoinCash)]
@@ -752,7 +774,13 @@ macro_rules! test_psbt_fixtures {
         #[case::dogecoin($crate::Network::Dogecoin)]
         #[case::litecoin($crate::Network::Litecoin)]
         #[case::zcash($crate::Network::Zcash)]
-        fn $test_name(#[case] $network: $crate::Network) $body
+        fn $test_name(
+            #[case] $network: $crate::Network,
+            #[values(
+                $crate::fixed_script_wallet::test_utils::fixtures::TxFormat::Psbt,
+                $crate::fixed_script_wallet::test_utils::fixtures::TxFormat::PsbtLite
+            )] $format: $crate::fixed_script_wallet::test_utils::fixtures::TxFormat
+        ) $body
     };
 }
 
