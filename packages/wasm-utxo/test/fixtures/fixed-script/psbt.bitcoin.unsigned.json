@@ -219,7 +219,15 @@
           "path": "0/0/41/5",
           "masterFingerprint": "f65cd869"
         }
-      ]
+      ],
+      "musig2Participants": {
+        "tapOutputKey": "15c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16",
+        "tapInternalKey": "eb5ad29a85aed24de2880e774caaf624f9cb1be09c67ed4aefbb9b7bc12ddf1a",
+        "participantPubKeys": [
+          "021d978a17486ff9e47c82990269e531fc63981419d4ce73ee8bd2c99661c53953",
+          "020fdea69e40a3adef3cdc7fa6f3af02f4c9d9e3254503c96a6a2b4aa66e778171"
+        ]
+      }
     },
     {
       "type": "p2shP2pk",
@@ -229,6 +237,7 @@
       "sighashType": 1
     }
   ],
+  "psbtInputsFinalized": null,
   "outputs": [
     {
       "script": "a914d909474404c124a3d04c3fbff61faa49cf43c58b87",

@@ -263,6 +263,33 @@
           "path": "0/0/41/5",
           "masterFingerprint": "f65cd869"
         }
+      ],
+      "musig2Participants": {
+        "tapOutputKey": "15c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16",
+        "tapInternalKey": "eb5ad29a85aed24de2880e774caaf624f9cb1be09c67ed4aefbb9b7bc12ddf1a",
+        "participantPubKeys": [
+          "021d978a17486ff9e47c82990269e531fc63981419d4ce73ee8bd2c99661c53953",
+          "020fdea69e40a3adef3cdc7fa6f3af02f4c9d9e3254503c96a6a2b4aa66e778171"
+        ]
+      },
+      "musig2Nonces": [
+        {
+          "participantPubKey": "021d978a17486ff9e47c82990269e531fc63981419d4ce73ee8bd2c99661c53953",
+          "tapOutputKey": "15c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16",
+          "pubNonce": "03a4aaf46f3a0bc39a73855fa875b2f2f04bdb06235afbaedf857b593dddc63cb402cdb7f1a93ec526282198d834423371757e8f43932d03b9f43c3f7378300ae508"
+        },
+        {
+          "participantPubKey": "020fdea69e40a3adef3cdc7fa6f3af02f4c9d9e3254503c96a6a2b4aa66e778171",
+          "tapOutputKey": "15c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16",
+          "pubNonce": "02826949740dff45d408b1f19d94c720f53411e02c525b28ab3c593b6b530fe0370374b8a0ffcaaaee6b772dac5f7c23ef33670b32ec77c6d41efb3c36df2165a094"
+        }
+      ],
+      "musig2PartialSigs": [
+        {
+          "participantPubKey": "021d978a17486ff9e47c82990269e531fc63981419d4ce73ee8bd2c99661c53953",
+          "tapOutputKey": "15c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16",
+          "partialSig": "1cd8a0c0598b0d88f889fdf9a3140f8f088e2187803a2faaee3f13c0163eb76c"
+        }
       ]
     },
     {
@@ -279,6 +306,7 @@
       ]
     }
   ],
+  "psbtInputsFinalized": null,
   "outputs": [
     {
       "script": "a914d909474404c124a3d04c3fbff61faa49cf43c58b87",
