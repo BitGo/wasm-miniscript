@@ -23,7 +23,7 @@ pub fn generate_tree_text_with_scheme(
 /// Returns the path to the fixture directory
 pub fn fixtures_directory() -> PathBuf {
     let project_dir = env::current_dir().expect("Failed to get current directory");
-    project_dir.join("tests").join("fixtures")
+    project_dir.join("test").join("fixtures")
 }
 
 /// Write tree output to a fixture file
