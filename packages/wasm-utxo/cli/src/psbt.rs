@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use crate::format::{render_tree_with_scheme, ColorScheme};
 use crate::parse_node::parse_psbt_bytes_internal;
+use crate::parse_node_raw::parse_psbt_bytes_raw;
 
 fn decode_input(raw_bytes: &[u8]) -> Result<Vec<u8>> {
     // Try to interpret as text first (for base64/hex encoded input)
@@ -37,12 +38,19 @@ pub enum PsbtCommand {
         /// Disable colored output
         #[arg(long)]
         no_color: bool,
+        /// Show raw key-value pairs instead of parsed structure
+        #[arg(long)]
+        raw: bool,
     },
 }
 
 pub fn handle_command(command: PsbtCommand) -> Result<()> {
     match command {
-        PsbtCommand::Parse { path, no_color } => {
+        PsbtCommand::Parse {
+            path,
+            no_color,
+            raw,
+        } => {
             let raw_bytes = if path.to_str() == Some("-") {
                 // Read from stdin
                 let mut buffer = Vec::new();
@@ -59,8 +67,13 @@ pub fn handle_command(command: PsbtCommand) -> Result<()> {
             // Decode input (auto-detect base64, hex, or raw bytes)
             let bytes = decode_input(&raw_bytes)?;
 
-            let node = parse_psbt_bytes_internal(&bytes)
-                .map_err(|e| anyhow::anyhow!("Failed to parse PSBT: {}", e))?;
+            let node = if raw {
+                parse_psbt_bytes_raw(&bytes)
+                    .map_err(|e| anyhow::anyhow!("Failed to parse PSBT (raw): {}", e))?
+            } else {
+                parse_psbt_bytes_internal(&bytes)
+                    .map_err(|e| anyhow::anyhow!("Failed to parse PSBT: {}", e))?
+            };
 
             let color_scheme = if no_color {
                 ColorScheme::no_color()

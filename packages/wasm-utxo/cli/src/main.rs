@@ -5,7 +5,11 @@ mod address;
 mod format;
 mod node;
 mod parse_node;
+mod parse_node_raw;
 mod psbt;
+
+#[cfg(test)]
+pub mod test_utils;
 
 #[derive(Parser)]
 #[command(name = "wasm-utxo-cli")]

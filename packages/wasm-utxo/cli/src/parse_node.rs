@@ -317,3 +317,26 @@ pub fn parse_tx_bytes_internal(bytes: &[u8]) -> Result<Node, String> {
         .map(|tx| tx_to_node(&tx, Network::Bitcoin))
         .map_err(|e| e.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_psbt_bitcoin_fullsigned() -> Result<(), Box<dyn std::error::Error>> {
+        use crate::format::fixtures::assert_tree_matches_fixture;
+        use crate::test_utils::{load_psbt_bytes, SignatureState, TxFormat};
+        use wasm_utxo::Network as WasmNetwork;
+
+        let psbt_bytes = load_psbt_bytes(
+            WasmNetwork::Bitcoin,
+            SignatureState::Fullsigned,
+            TxFormat::Psbt,
+        )?;
+
+        let node = parse_psbt_bytes_internal(&psbt_bytes)?;
+
+        assert_tree_matches_fixture(&node, "psbt_bitcoin_fullsigned")?;
+        Ok(())
+    }
+}
