@@ -103,7 +103,7 @@ pub fn psbt_to_node(psbt: &Psbt, network: Network) -> Node {
 
     psbt_node.add_child(xpubs_to_node(&psbt.xpub));
 
-    if psbt.proprietary.len() > 0 {
+    if !psbt.proprietary.is_empty() {
         let mut proprietary_node =
             Node::new("proprietary", Primitive::U64(psbt.proprietary.len() as u64));
         proprietary_node.extend(proprietary_to_nodes(&psbt.proprietary));
@@ -177,7 +177,7 @@ pub fn psbt_to_node(psbt: &Psbt, network: Network) -> Node {
 
         input_node.extend(bip32_derivations_to_nodes(&input.bip32_derivation));
 
-        if input.proprietary.len() > 0 {
+        if !input.proprietary.is_empty() {
             let mut prop_node = Node::new(
                 "proprietary",
                 Primitive::U64(input.proprietary.len() as u64),
@@ -203,7 +203,7 @@ pub fn psbt_to_node(psbt: &Psbt, network: Network) -> Node {
             output_node.add_child(script_buf_to_node("witness_script", script));
         }
 
-        if output.proprietary.len() > 0 {
+        if !output.proprietary.is_empty() {
             let mut prop_node = Node::new(
                 "proprietary",
                 Primitive::U64(output.proprietary.len() as u64),
@@ -337,6 +337,24 @@ mod tests {
         let node = parse_psbt_bytes_internal(&psbt_bytes)?;
 
         assert_tree_matches_fixture(&node, "psbt_bitcoin_fullsigned")?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_tx_bitcoin_fullsigned() -> Result<(), Box<dyn std::error::Error>> {
+        use crate::format::fixtures::assert_tree_matches_fixture;
+        use crate::test_utils::{load_tx_bytes, SignatureState, TxFormat};
+        use wasm_utxo::Network as WasmNetwork;
+
+        let tx_bytes = load_tx_bytes(
+            WasmNetwork::Bitcoin,
+            SignatureState::Fullsigned,
+            TxFormat::PsbtLite,
+        )?;
+
+        let node = parse_tx_bytes_internal(&tx_bytes)?;
+
+        assert_tree_matches_fixture(&node, "tx_bitcoin_fullsigned")?;
         Ok(())
     }
 }

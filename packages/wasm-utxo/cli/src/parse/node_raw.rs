@@ -14,7 +14,7 @@
 /// # Example
 ///
 /// ```ignore
-/// use parse_node_raw::parse_psbt_bytes_raw;
+/// use parse::node_raw::parse_psbt_bytes_raw;
 ///
 /// let psbt_bytes = /* your PSBT data */;
 /// let node = parse_psbt_bytes_raw(&psbt_bytes)?;
