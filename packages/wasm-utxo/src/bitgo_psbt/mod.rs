@@ -3,9 +3,15 @@
 //! This module provides PSBT deserialization that works across different
 //! bitcoin-like networks, including those with non-standard transaction formats.
 
+mod p2tr_musig2_input;
+mod propkv;
 mod sighash;
 mod zcash_psbt;
 
+pub use p2tr_musig2_input::{
+    parse_musig2_nonces, parse_musig2_partial_sigs, parse_musig2_participants, Musig2Error,
+    Musig2Input, Musig2PartialSig, Musig2Participants, Musig2PubNonce,
+};
 pub use sighash::validate_sighash_type;
 
 use crate::{bitgo_psbt::zcash_psbt::ZcashPsbt, networks::Network};

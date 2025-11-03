@@ -123,6 +123,134 @@ pub struct TapTree {
     pub leaves: Vec<TapTreeLeaf>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Musig2Participants {
+    pub tap_output_key: String,
+    pub tap_internal_key: String,
+    pub participant_pub_keys: Vec<String>,
+}
+
+impl Musig2Participants {
+    /// Validates that the parsed Musig2Participants matches this fixture
+    pub fn assert_matches_parsed(
+        &self,
+        parsed: &crate::bitgo_psbt::Musig2Participants,
+    ) -> Result<(), String> {
+        // Compare tap_output_key
+        let parsed_output_key_hex = hex::encode(parsed.tap_output_key.serialize());
+        assert_hex_eq(
+            &parsed_output_key_hex,
+            &self.tap_output_key,
+            "Tap output key",
+        )?;
+
+        // Compare tap_internal_key
+        let parsed_internal_key_hex = hex::encode(parsed.tap_internal_key.serialize());
+        assert_hex_eq(
+            &parsed_internal_key_hex,
+            &self.tap_internal_key,
+            "Tap internal key",
+        )?;
+
+        // Compare participant pub keys
+        if parsed.participant_pub_keys.len() != self.participant_pub_keys.len() {
+            return Err(format!(
+                "Participant pub keys count mismatch: expected {}, got {}",
+                self.participant_pub_keys.len(),
+                parsed.participant_pub_keys.len()
+            ));
+        }
+
+        for (i, parsed_key) in parsed.participant_pub_keys.iter().enumerate() {
+            let parsed_key_hex = hex::encode(parsed_key.to_bytes());
+            assert_hex_eq(
+                &parsed_key_hex,
+                &self.participant_pub_keys[i],
+                &format!("Participant pub key {}", i),
+            )?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Musig2Nonce {
+    pub participant_pub_key: String,
+    pub tap_output_key: String,
+    pub pub_nonce: String,
+}
+
+impl Musig2Nonce {
+    /// Validates that the parsed Musig2PubNonce matches this fixture
+    pub fn assert_matches_parsed(
+        &self,
+        parsed: &crate::bitgo_psbt::Musig2PubNonce,
+    ) -> Result<(), String> {
+        // Compare participant pub key
+        let parsed_participant_key_hex = hex::encode(parsed.participant_pub_key.to_bytes());
+        assert_hex_eq(
+            &parsed_participant_key_hex,
+            &self.participant_pub_key,
+            "Participant pub key",
+        )?;
+
+        // Compare tap_output_key
+        let parsed_output_key_hex = hex::encode(parsed.tap_output_key.serialize());
+        assert_hex_eq(
+            &parsed_output_key_hex,
+            &self.tap_output_key,
+            "Tap output key",
+        )?;
+
+        // Compare pub_nonce
+        let parsed_nonce_hex = hex::encode(parsed.pub_nonce.serialize());
+        assert_hex_eq(&parsed_nonce_hex, &self.pub_nonce, "Public nonce")?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Musig2PartialSig {
+    pub participant_pub_key: String,
+    pub tap_output_key: String,
+    pub partial_sig: String,
+}
+
+impl Musig2PartialSig {
+    /// Validates that the parsed Musig2PartialSig matches this fixture
+    pub fn assert_matches_parsed(
+        &self,
+        parsed: &crate::bitgo_psbt::Musig2PartialSig,
+    ) -> Result<(), String> {
+        // Compare participant pub key
+        let parsed_participant_key_hex = hex::encode(parsed.participant_pub_key.to_bytes());
+        assert_hex_eq(
+            &parsed_participant_key_hex,
+            &self.participant_pub_key,
+            "Participant pub key",
+        )?;
+
+        // Compare tap_output_key
+        let parsed_output_key_hex = hex::encode(parsed.tap_output_key.serialize());
+        assert_hex_eq(
+            &parsed_output_key_hex,
+            &self.tap_output_key,
+            "Tap output key",
+        )?;
+
+        // Compare partial_sig
+        let parsed_sig_hex = hex::encode(&parsed.partial_sig);
+        assert_hex_eq(&parsed_sig_hex, &self.partial_sig, "Partial signature")?;
+
+        Ok(())
+    }
+}
+
 // Input type structs (depend on helper types above)
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -186,6 +314,12 @@ pub struct P2trMusig2KeyPathInput {
     pub tap_internal_key: String,
     pub tap_merkle_root: String,
     pub tap_bip32_derivation: Vec<TapBip32Derivation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub musig2_participants: Option<Musig2Participants>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub musig2_nonces: Vec<Musig2Nonce>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub musig2_partial_sigs: Vec<Musig2PartialSig>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -223,6 +357,94 @@ pub enum PsbtInputFixture {
     P2shP2pk(P2shP2pkInput),
 }
 
+// Finalized input type structs (depend on helper types above)
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct P2shFinalInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unknown_key_vals: Option<Vec<UnknownKeyVal>>,
+    pub final_script_sig: String,
+    /// Present for non-PSBT-LITE format (legacy)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub non_witness_utxo: Option<String>,
+    /// Present for PSBT-LITE format
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub witness_utxo: Option<WitnessUtxo>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct P2shP2wshFinalInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unknown_key_vals: Option<Vec<UnknownKeyVal>>,
+    pub witness_utxo: WitnessUtxo,
+    pub final_script_sig: String,
+    pub final_script_witness: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct P2wshFinalInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unknown_key_vals: Option<Vec<UnknownKeyVal>>,
+    pub witness_utxo: WitnessUtxo,
+    pub final_script_witness: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct P2trScriptPathFinalInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unknown_key_vals: Option<Vec<UnknownKeyVal>>,
+    pub witness_utxo: WitnessUtxo,
+    pub final_script_witness: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct P2trMusig2KeyPathFinalInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unknown_key_vals: Option<Vec<UnknownKeyVal>>,
+    pub witness_utxo: WitnessUtxo,
+    pub final_script_witness: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct P2shP2pkFinalInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unknown_key_vals: Option<Vec<UnknownKeyVal>>,
+    pub final_script_sig: String,
+    /// Present for non-PSBT-LITE format (legacy)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub non_witness_utxo: Option<String>,
+    /// Present for PSBT-LITE format
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub witness_utxo: Option<WitnessUtxo>,
+}
+
+// Final input enum (depends on final input type structs)
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(tag = "type")]
+pub enum PsbtFinalInputFixture {
+    #[serde(rename = "p2sh")]
+    P2sh(P2shFinalInput),
+    #[serde(rename = "p2shP2wsh")]
+    P2shP2wsh(P2shP2wshFinalInput),
+    #[serde(rename = "p2wsh")]
+    P2wsh(P2wshFinalInput),
+    #[serde(rename = "p2tr")]
+    P2trLegacy(P2trScriptPathFinalInput),
+    #[serde(rename = "p2trMusig2")]
+    P2trMusig2ScriptPath(P2trScriptPathFinalInput),
+    #[serde(rename = "taprootKeyPathSpend")]
+    P2trMusig2KeyPath(P2trMusig2KeyPathFinalInput),
+    #[serde(rename = "p2shP2pk")]
+    P2shP2pk(P2shP2pkFinalInput),
+}
+
 // Output types (depend on helper types)
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -252,9 +474,31 @@ pub struct PsbtFixture {
     pub psbt_base64: String,
     pub inputs: Vec<TxInput>,
     pub psbt_inputs: Vec<PsbtInputFixture>,
+    pub psbt_inputs_finalized: Option<Vec<PsbtFinalInputFixture>>,
     pub outputs: Vec<TxOutput>,
     pub psbt_outputs: Vec<PsbtOutputFixture>,
     pub extracted_transaction: Option<String>,
+}
+
+/// Helper function to find a unique input matching a predicate
+fn find_unique_input<'a, T, I, F>(
+    iter: I,
+    predicate: F,
+    script_type: ScriptType,
+) -> Result<(usize, &'a T), String>
+where
+    I: Iterator<Item = (usize, &'a T)>,
+    F: FnMut(&(usize, &'a T)) -> bool,
+{
+    let result = iter.filter(predicate).collect::<Vec<_>>();
+    if result.len() != 1 {
+        return Err(format!(
+            "Expected 1 input with script type {}, got {}",
+            script_type.as_str(),
+            result.len()
+        ));
+    }
+    Ok(result[0])
 }
 
 impl PsbtFixture {
@@ -274,20 +518,27 @@ impl PsbtFixture {
         &self,
         script_type: ScriptType,
     ) -> Result<(usize, &PsbtInputFixture), String> {
-        let result = self
-            .psbt_inputs
-            .iter()
-            .enumerate()
-            .filter(|(_, input)| script_type.matches_fixture(input))
-            .collect::<Vec<_>>();
-        if result.len() != 1 {
-            return Err(format!(
-                "Expected 1 input with script type {}, got {}",
-                script_type.as_str(),
-                result.len()
-            ));
-        }
-        Ok(result[0])
+        find_unique_input(
+            self.psbt_inputs.iter().enumerate(),
+            |(_, input)| script_type.matches_fixture(input),
+            script_type,
+        )
+    }
+
+    pub fn find_finalized_input_with_script_type(
+        &self,
+        script_type: ScriptType,
+    ) -> Result<(usize, &PsbtFinalInputFixture), String> {
+        let finalized_inputs = self
+            .psbt_inputs_finalized
+            .as_ref()
+            .ok_or_else(|| "No finalized inputs available in fixture".to_string())?;
+
+        find_unique_input(
+            finalized_inputs.iter().enumerate(),
+            |(_, input)| script_type.matches_finalized_fixture(input),
+            script_type,
+        )
     }
 }
 
@@ -472,7 +723,7 @@ pub fn parse_wallet_keys(
 // Helper functions for validation
 
 /// Compares a generated hex string with an expected hex string
-fn assert_hex_eq(generated: &str, expected: &str, field_name: &str) -> Result<(), String> {
+pub fn assert_hex_eq(generated: &str, expected: &str, field_name: &str) -> Result<(), String> {
     if generated != expected {
         Err(format!(
             "{} mismatch\nExpected: {}\nGot: {}",
@@ -670,6 +921,78 @@ impl P2trMusig2KeyPathInput {
             self.assert_matches_spend_info(spend_info, network)
         })
     }
+
+    /// Validates that the parsed Musig2 input data matches this fixture
+    pub fn assert_matches_musig2_input(
+        &self,
+        musig2_input: &crate::bitgo_psbt::Musig2Input,
+    ) -> Result<(), String> {
+        // Validate participants
+        let fixture_participants = self
+            .musig2_participants
+            .as_ref()
+            .ok_or_else(|| "Expected fixture participants".to_string())?;
+
+        fixture_participants
+            .assert_matches_parsed(&musig2_input.participants)
+            .map_err(|e| format!("Participants mismatch: {}", e))?;
+
+        // Validate nonces
+        if musig2_input.nonces.len() != self.musig2_nonces.len() {
+            return Err(format!(
+                "Nonce count mismatch: expected {}, got {}",
+                self.musig2_nonces.len(),
+                musig2_input.nonces.len()
+            ));
+        }
+
+        for fixture_nonce in &self.musig2_nonces {
+            // Find matching parsed nonce by participant key
+            let matching_parsed = musig2_input.nonces.iter().find(|pn| {
+                hex::encode(pn.participant_pub_key.to_bytes()) == fixture_nonce.participant_pub_key
+            });
+
+            let parsed_nonce = matching_parsed.ok_or_else(|| {
+                format!(
+                    "No matching nonce found for participant key: {}",
+                    fixture_nonce.participant_pub_key
+                )
+            })?;
+
+            fixture_nonce
+                .assert_matches_parsed(parsed_nonce)
+                .map_err(|e| format!("Nonce mismatch: {}", e))?;
+        }
+
+        // Validate partial signatures
+        if musig2_input.partial_sigs.len() != self.musig2_partial_sigs.len() {
+            return Err(format!(
+                "Partial signature count mismatch: expected {}, got {}",
+                self.musig2_partial_sigs.len(),
+                musig2_input.partial_sigs.len()
+            ));
+        }
+
+        for fixture_sig in &self.musig2_partial_sigs {
+            // Find matching parsed sig by participant key
+            let matching_parsed = musig2_input.partial_sigs.iter().find(|ps| {
+                hex::encode(ps.participant_pub_key.to_bytes()) == fixture_sig.participant_pub_key
+            });
+
+            let parsed_sig = matching_parsed.ok_or_else(|| {
+                format!(
+                    "No matching partial sig found for participant key: {}",
+                    fixture_sig.participant_pub_key
+                )
+            })?;
+
+            fixture_sig
+                .assert_matches_parsed(parsed_sig)
+                .map_err(|e| format!("Partial signature mismatch: {}", e))?;
+        }
+
+        Ok(())
+    }
 }
 
 /// Script type for PSBT input validation
@@ -711,6 +1034,25 @@ impl ScriptType {
                 | (
                     ScriptType::TaprootKeypath,
                     PsbtInputFixture::P2trMusig2KeyPath(_)
+                )
+        )
+    }
+
+    /// Checks if the given finalized fixture input matches this script type
+    pub fn matches_finalized_fixture(&self, fixture: &PsbtFinalInputFixture) -> bool {
+        matches!(
+            (self, fixture),
+            (ScriptType::P2sh, PsbtFinalInputFixture::P2sh(_))
+                | (ScriptType::P2shP2wsh, PsbtFinalInputFixture::P2shP2wsh(_))
+                | (ScriptType::P2wsh, PsbtFinalInputFixture::P2wsh(_))
+                | (ScriptType::P2tr, PsbtFinalInputFixture::P2trLegacy(_))
+                | (
+                    ScriptType::P2trMusig2,
+                    PsbtFinalInputFixture::P2trMusig2ScriptPath(_)
+                )
+                | (
+                    ScriptType::TaprootKeypath,
+                    PsbtFinalInputFixture::P2trMusig2KeyPath(_)
                 )
         )
     }
