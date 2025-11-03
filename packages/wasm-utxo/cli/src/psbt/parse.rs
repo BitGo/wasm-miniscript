@@ -30,4 +30,3 @@ pub fn handle_parse_command(path: PathBuf, no_color: bool, raw: bool) -> Result<
 
     Ok(())
 }
-

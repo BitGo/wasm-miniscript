@@ -20,4 +20,3 @@ pub fn handle_command(command: TxCommand) -> Result<()> {
         TxCommand::Parse { path, no_color } => parse::handle_parse_command(path, no_color),
     }
 }
-

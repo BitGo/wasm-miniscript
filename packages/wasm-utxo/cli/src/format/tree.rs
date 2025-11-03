@@ -1,6 +1,8 @@
 use crate::node::{Node, Primitive};
 use colored::*;
-use ptree::{print_tree, TreeBuilder};
+use ptree::print_tree;
+#[cfg(test)]
+use ptree::TreeBuilder;
 use std::borrow::Cow;
 use std::io;
 
@@ -40,30 +42,6 @@ impl ColorScheme {
             label_style: |s| s.to_string(),
             value_style: |s| s.to_string(),
             buffer_style: |s| s.to_string(),
-            numeric_style: |s| s.to_string(),
-            string_style: |s| s.to_string(),
-            boolean_style: |s| s.to_string(),
-        }
-    }
-
-    /// High contrast color scheme for better visibility
-    pub fn high_contrast() -> Self {
-        Self {
-            label_style: |s| s.bold().bright_white().to_string(),
-            value_style: |s| s.to_string(),
-            buffer_style: |s| s.bright_cyan().to_string(),
-            numeric_style: |s| s.bright_yellow().to_string(),
-            string_style: |s| s.bright_green().to_string(),
-            boolean_style: |s| s.bright_magenta().to_string(),
-        }
-    }
-
-    /// Minimal color scheme with subtle styling
-    pub fn minimal() -> Self {
-        Self {
-            label_style: |s| s.dimmed().to_string(),
-            value_style: |s| s.to_string(),
-            buffer_style: |s| s.blue().to_string(),
             numeric_style: |s| s.to_string(),
             string_style: |s| s.to_string(),
             boolean_style: |s| s.to_string(),
@@ -149,7 +127,8 @@ pub fn format_primitive_for_tree(primitive: &Primitive) -> String {
 }
 
 /// Render a Node tree to a string with the specified color scheme
-pub fn node_to_string_with_scheme(
+#[cfg(test)]
+pub(super) fn node_to_string_with_scheme(
     node: &Node,
     color_scheme: &ColorScheme,
 ) -> Result<String, io::Error> {
@@ -173,17 +152,9 @@ pub fn node_to_string_with_scheme(
     Ok(String::from_utf8_lossy(&output).to_string())
 }
 
-/// Render a Node tree to a string (using default color scheme for backward compatibility)
-pub fn node_to_string(node: &Node) -> Result<String, io::Error> {
-    node_to_string_with_scheme(node, &ColorScheme::default())
-}
-
 /// Helper function to add a node and its children to a tree with color scheme
-pub fn add_node_to_tree_with_scheme(
-    tree: &mut TreeBuilder,
-    node: &Node,
-    color_scheme: &ColorScheme,
-) {
+#[cfg(test)]
+fn add_node_to_tree_with_scheme(tree: &mut TreeBuilder, node: &Node, color_scheme: &ColorScheme) {
     let styled_label = (color_scheme.label_style)(&node.label);
     let value_str = format_primitive_for_tree(&node.value);
     let styled_value = color_scheme.style_primitive(&node.value, &value_str);
@@ -197,18 +168,8 @@ pub fn add_node_to_tree_with_scheme(
     tree.end_child();
 }
 
-/// Helper function to add a node and its children to a tree (using default color scheme for backward compatibility)
-pub fn add_node_to_tree(tree: &mut TreeBuilder, node: &Node) {
-    add_node_to_tree_with_scheme(tree, node, &ColorScheme::default());
-}
-
 /// Render a Node tree to the terminal with the specified color scheme
 pub fn render_tree_with_scheme(node: &Node, color_scheme: &ColorScheme) -> Result<(), io::Error> {
     let tree_item = NodeTreeItem { node, color_scheme };
     print_tree(&tree_item)
-}
-
-/// Render a Node tree to the terminal (using default color scheme for backward compatibility)
-pub fn render_tree(node: &Node) -> Result<(), io::Error> {
-    render_tree_with_scheme(node, &ColorScheme::default())
 }

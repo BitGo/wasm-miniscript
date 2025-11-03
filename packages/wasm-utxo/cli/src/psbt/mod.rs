@@ -27,4 +27,3 @@ pub fn handle_command(command: PsbtCommand) -> Result<()> {
         } => parse::handle_parse_command(path, no_color, raw),
     }
 }
-
