@@ -3,9 +3,15 @@
 //! This module provides PSBT deserialization that works across different
 //! bitcoin-like networks, including those with non-standard transaction formats.
 
+mod p2tr_musig2_input;
+mod propkv;
 mod sighash;
 mod zcash_psbt;
 
+pub use p2tr_musig2_input::{
+    parse_musig2_nonces, parse_musig2_partial_sigs, parse_musig2_participants, Musig2Error,
+    Musig2Input, Musig2PartialSig, Musig2Participants, Musig2PubNonce,
+};
 pub use sighash::validate_sighash_type;
 
 use crate::{bitgo_psbt::zcash_psbt::ZcashPsbt, networks::Network};
@@ -184,9 +190,8 @@ mod tests {
         }
     }
 
-    crate::test_psbt_fixtures!(test_parse_network_mainnet_only, network, {
-        test_parse_with_format(fixtures::TxFormat::Psbt, network);
-        test_parse_with_format(fixtures::TxFormat::PsbtLite, network);
+    crate::test_psbt_fixtures!(test_parse_network_mainnet_only, network, format, {
+        test_parse_with_format(format, network);
     });
 
     #[test]
@@ -242,9 +247,8 @@ mod tests {
         }
     }
 
-    crate::test_psbt_fixtures!(test_round_trip_mainnet_only, network, {
-        test_round_trip_with_format(fixtures::TxFormat::Psbt, network);
-        test_round_trip_with_format(fixtures::TxFormat::PsbtLite, network);
+    crate::test_psbt_fixtures!(test_round_trip_mainnet_only, network, format, {
+        test_round_trip_with_format(format, network);
     });
 
     fn parse_derivation_path(path: &str) -> Result<(u32, u32), String> {
@@ -279,26 +283,6 @@ mod tests {
         let (chain_num, index) = parse_derivation_path(&bip32_path).expect("Failed to parse path");
         let chain = Chain::try_from(chain_num).expect("Invalid chain");
         Ok((chain, index))
-    }
-
-    fn find_input_with_script_type(
-        fixture: &fixtures::PsbtFixture,
-        script_type: fixtures::ScriptType,
-    ) -> Result<(usize, &fixtures::PsbtInputFixture), String> {
-        let result = fixture
-            .psbt_inputs
-            .iter()
-            .enumerate()
-            .filter(|(_, input)| script_type.matches_fixture(input))
-            .collect::<Vec<_>>();
-        if result.len() != 1 {
-            return Err(format!(
-                "Expected 1 input with script type {}, got {}",
-                script_type.as_str(),
-                result.len()
-            ));
-        }
-        Ok(result[0])
     }
 
     fn get_output_script_from_non_witness_utxo(
@@ -343,7 +327,7 @@ mod tests {
 
         // Check if the script type is supported by the network
         let output_script_support = network.output_script_support();
-        let input_fixture = find_input_with_script_type(&fixture, script_type);
+        let input_fixture = fixture.find_input_with_script_type(script_type);
         if !script_type.is_supported_by(&output_script_support) {
             // Script type not supported by network - skip test (no fixture expected)
             assert!(
@@ -441,101 +425,47 @@ mod tests {
         Ok(())
     }
 
-    crate::test_psbt_fixtures!(test_p2sh_script_generation_from_fixture, network, {
-        test_wallet_script_type(
-            fixtures::ScriptType::P2sh,
-            network,
-            fixtures::TxFormat::Psbt,
-        )
-        .unwrap();
-        test_wallet_script_type(
-            fixtures::ScriptType::P2sh,
-            network,
-            fixtures::TxFormat::PsbtLite,
-        )
-        .unwrap();
+    crate::test_psbt_fixtures!(test_p2sh_script_generation_from_fixture, network, format, {
+        test_wallet_script_type(fixtures::ScriptType::P2sh, network, format).unwrap();
     });
 
-    crate::test_psbt_fixtures!(test_p2sh_p2wsh_script_generation_from_fixture, network, {
-        test_wallet_script_type(
-            fixtures::ScriptType::P2shP2wsh,
-            network,
-            fixtures::TxFormat::Psbt,
-        )
-        .unwrap();
-        test_wallet_script_type(
-            fixtures::ScriptType::P2shP2wsh,
-            network,
-            fixtures::TxFormat::PsbtLite,
-        )
-        .unwrap();
-    });
+    crate::test_psbt_fixtures!(
+        test_p2sh_p2wsh_script_generation_from_fixture,
+        network,
+        format,
+        {
+            test_wallet_script_type(fixtures::ScriptType::P2shP2wsh, network, format).unwrap();
+        }
+    );
 
-    crate::test_psbt_fixtures!(test_p2wsh_script_generation_from_fixture, network, {
-        test_wallet_script_type(
-            fixtures::ScriptType::P2wsh,
-            network,
-            fixtures::TxFormat::Psbt,
-        )
-        .unwrap();
-        test_wallet_script_type(
-            fixtures::ScriptType::P2wsh,
-            network,
-            fixtures::TxFormat::PsbtLite,
-        )
-        .unwrap();
-    });
+    crate::test_psbt_fixtures!(
+        test_p2wsh_script_generation_from_fixture,
+        network,
+        format,
+        {
+            test_wallet_script_type(fixtures::ScriptType::P2wsh, network, format).unwrap();
+        }
+    );
 
-    crate::test_psbt_fixtures!(test_p2tr_script_generation_from_fixture, network, {
-        test_wallet_script_type(
-            fixtures::ScriptType::P2tr,
-            network,
-            fixtures::TxFormat::Psbt,
-        )
-        .unwrap();
-        test_wallet_script_type(
-            fixtures::ScriptType::P2tr,
-            network,
-            fixtures::TxFormat::PsbtLite,
-        )
-        .unwrap();
+    crate::test_psbt_fixtures!(test_p2tr_script_generation_from_fixture, network, format, {
+        test_wallet_script_type(fixtures::ScriptType::P2tr, network, format).unwrap();
     });
 
     crate::test_psbt_fixtures!(
         test_p2tr_musig2_script_path_generation_from_fixture,
         network,
+        format,
         {
-            test_wallet_script_type(
-                fixtures::ScriptType::P2trMusig2,
-                network,
-                fixtures::TxFormat::Psbt,
-            )
-            .unwrap();
-            test_wallet_script_type(
-                fixtures::ScriptType::P2trMusig2,
-                network,
-                fixtures::TxFormat::PsbtLite,
-            )
-            .unwrap();
+            test_wallet_script_type(fixtures::ScriptType::P2trMusig2, network, format).unwrap();
         }
     );
 
     crate::test_psbt_fixtures!(
         test_p2tr_musig2_key_path_spend_script_generation_from_fixture,
         network,
+        format,
         {
-            test_wallet_script_type(
-                fixtures::ScriptType::TaprootKeypath,
-                network,
-                fixtures::TxFormat::Psbt,
-            )
-            .unwrap();
-            test_wallet_script_type(
-                fixtures::ScriptType::TaprootKeypath,
-                network,
-                fixtures::TxFormat::PsbtLite,
-            )
-            .unwrap();
+            test_wallet_script_type(fixtures::ScriptType::TaprootKeypath, network, format).unwrap();
         }
     );
 

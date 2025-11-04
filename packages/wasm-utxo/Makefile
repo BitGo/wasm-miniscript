@@ -44,3 +44,8 @@ dist/node/js/wasm/:
 .PHONY: dist/browser/js/wasm/
 dist/browser/js/wasm/:
 	$(call BUILD,$@,browser)
+
+.PHONY: lint
+lint:
+	cargo fmt --check
+	cargo clippy --all-targets --all-features -- -D warnings
