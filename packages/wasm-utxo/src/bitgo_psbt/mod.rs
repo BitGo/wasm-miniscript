@@ -238,7 +238,6 @@ mod tests {
     use crate::fixed_script_wallet::{RootWalletKeys, WalletScripts};
     use crate::test_utils::fixtures;
     use base64::engine::{general_purpose::STANDARD as BASE64_STANDARD, Engine};
-    use miniscript::bitcoin::bip32::Xpub;
     use miniscript::bitcoin::consensus::Decodable;
     use miniscript::bitcoin::Transaction;
 
@@ -386,7 +385,7 @@ mod tests {
         output.script_pubkey.to_hex_string()
     }
 
-    fn assert_matches_wallet_scripts(
+    fn assert_full_signed_matches_wallet_scripts(
         network: Network,
         tx_format: fixtures::TxFormat,
         fixture: &fixtures::PsbtFixture,
@@ -497,50 +496,35 @@ mod tests {
         network: Network,
         tx_format: fixtures::TxFormat,
     ) -> Result<(), String> {
-        let fixture = fixtures::load_psbt_fixture_with_format(
-            network.to_utxolib_name(),
-            fixtures::SignatureState::Fullsigned,
-            tx_format,
-        )
-        .expect("Failed to load fixture");
-        let wallet_keys =
-            fixtures::parse_wallet_keys(&fixture).expect("Failed to parse wallet keys");
-        let secp = crate::bitcoin::secp256k1::Secp256k1::new();
-        let wallet_keys = RootWalletKeys::new(
-            wallet_keys
-                .iter()
-                .map(|x| Xpub::from_priv(&secp, x))
-                .collect::<Vec<_>>()
-                .try_into()
-                .expect("Failed to convert to XpubTriple"),
-        );
+        let psbt_stages = fixtures::PsbtStages::load(network, tx_format)?;
+        let psbt_input_stages =
+            fixtures::PsbtInputStages::from_psbt_stages(&psbt_stages, script_type);
 
         // Check if the script type is supported by the network
         let output_script_support = network.output_script_support();
-        let input_fixture = fixture.find_input_with_script_type(script_type);
         if !script_type.is_supported_by(&output_script_support) {
             // Script type not supported by network - skip test (no fixture expected)
             assert!(
-                input_fixture.is_err(),
+                psbt_input_stages.is_err(),
                 "Expected error for unsupported script type"
             );
             return Ok(());
         }
 
-        let (input_index, input_fixture) = input_fixture.unwrap();
+        let psbt_input_stages = psbt_input_stages.unwrap();
 
-        assert_matches_wallet_scripts(
+        assert_full_signed_matches_wallet_scripts(
             network,
             tx_format,
-            &fixture,
-            &wallet_keys,
-            input_index,
-            input_fixture,
+            &psbt_stages.fullsigned,
+            &psbt_input_stages.wallet_keys,
+            psbt_input_stages.input_index,
+            &psbt_input_stages.input_fixture_fullsigned,
         )?;
 
         assert_finalize_input(
-            fixture.to_bitgo_psbt(network).unwrap(),
-            input_index,
+            psbt_stages.fullsigned.to_bitgo_psbt(network).unwrap(),
+            psbt_input_stages.input_index,
             network,
             tx_format,
         )?;

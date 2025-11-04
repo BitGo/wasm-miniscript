@@ -32,7 +32,7 @@ pub fn to_pub_triple(xpubs: &XpubTriple) -> PubTriple {
         .expect("could not convert vec to array")
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RootWalletKeys {
     xpubs: XpubTriple,
     derivation_prefixes: [DerivationPath; 3],

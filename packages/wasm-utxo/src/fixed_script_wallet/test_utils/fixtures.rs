@@ -480,6 +480,106 @@ pub struct PsbtFixture {
     pub extracted_transaction: Option<String>,
 }
 
+// Test helper types for multi-stage PSBT testing
+
+pub struct PsbtStages {
+    pub network: Network,
+    pub tx_format: TxFormat,
+    pub wallet_keys: crate::fixed_script_wallet::RootWalletKeys,
+    pub unsigned: PsbtFixture,
+    pub halfsigned: PsbtFixture,
+    pub fullsigned: PsbtFixture,
+}
+
+impl PsbtStages {
+    pub fn load(network: Network, tx_format: TxFormat) -> Result<Self, String> {
+        let unsigned = load_psbt_fixture_with_format(
+            network.to_utxolib_name(),
+            SignatureState::Unsigned,
+            tx_format,
+        )
+        .expect("Failed to load unsigned fixture");
+        let halfsigned = load_psbt_fixture_with_format(
+            network.to_utxolib_name(),
+            SignatureState::Halfsigned,
+            tx_format,
+        )
+        .expect("Failed to load halfsigned fixture");
+        let fullsigned = load_psbt_fixture_with_format(
+            network.to_utxolib_name(),
+            SignatureState::Fullsigned,
+            tx_format,
+        )
+        .expect("Failed to load fullsigned fixture");
+        let wallet_keys_unsigned =
+            parse_wallet_keys(&unsigned).expect("Failed to parse wallet keys");
+        let wallet_keys_halfsigned =
+            parse_wallet_keys(&halfsigned).expect("Failed to parse wallet keys");
+        let wallet_keys_fullsigned =
+            parse_wallet_keys(&fullsigned).expect("Failed to parse wallet keys");
+        assert_eq!(wallet_keys_unsigned, wallet_keys_halfsigned);
+        assert_eq!(wallet_keys_unsigned, wallet_keys_fullsigned);
+        let secp = crate::bitcoin::secp256k1::Secp256k1::new();
+        let wallet_keys = crate::fixed_script_wallet::RootWalletKeys::new(
+            wallet_keys_unsigned
+                .iter()
+                .map(|x| crate::bitcoin::bip32::Xpub::from_priv(&secp, x))
+                .collect::<Vec<_>>()
+                .try_into()
+                .expect("Failed to convert to XpubTriple"),
+        );
+
+        Ok(Self {
+            network,
+            tx_format,
+            wallet_keys,
+            unsigned,
+            halfsigned,
+            fullsigned,
+        })
+    }
+}
+
+pub struct PsbtInputStages {
+    pub network: Network,
+    pub tx_format: TxFormat,
+    pub wallet_keys: crate::fixed_script_wallet::RootWalletKeys,
+    pub wallet_script_type: ScriptType,
+    pub input_index: usize,
+    pub input_fixture_unsigned: PsbtInputFixture,
+    pub input_fixture_halfsigned: PsbtInputFixture,
+    pub input_fixture_fullsigned: PsbtInputFixture,
+}
+
+impl PsbtInputStages {
+    pub fn from_psbt_stages(
+        psbt_stages: &PsbtStages,
+        wallet_script_type: ScriptType,
+    ) -> Result<Self, String> {
+        let input_fixture_unsigned = psbt_stages
+            .unsigned
+            .find_input_with_script_type(wallet_script_type)?;
+        let input_fixture_halfsigned = psbt_stages
+            .halfsigned
+            .find_input_with_script_type(wallet_script_type)?;
+        let input_fixture_fullsigned = psbt_stages
+            .fullsigned
+            .find_input_with_script_type(wallet_script_type)?;
+        assert_eq!(input_fixture_unsigned.0, input_fixture_halfsigned.0);
+        assert_eq!(input_fixture_unsigned.0, input_fixture_fullsigned.0);
+        Ok(Self {
+            network: psbt_stages.network,
+            tx_format: psbt_stages.tx_format,
+            wallet_keys: psbt_stages.wallet_keys.clone(),
+            wallet_script_type,
+            input_index: input_fixture_unsigned.0,
+            input_fixture_unsigned: input_fixture_unsigned.1.clone(),
+            input_fixture_halfsigned: input_fixture_halfsigned.1.clone(),
+            input_fixture_fullsigned: input_fixture_fullsigned.1.clone(),
+        })
+    }
+}
+
 /// Helper function to find a unique input matching a predicate
 fn find_unique_input<'a, T, I, F>(
     iter: I,
