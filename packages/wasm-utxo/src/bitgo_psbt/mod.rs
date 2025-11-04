@@ -229,14 +229,55 @@ impl BitGoPsbt {
             )),
         }
     }
+
+    /// Sign the PSBT with the provided key.
+    /// Wraps the underlying PSBT's sign method from miniscript::psbt::PsbtExt.
+    ///
+    /// # Type Parameters
+    /// - `C`: Signing context from secp256k1
+    /// - `K`: Key type that implements `psbt::GetKey` trait
+    ///
+    /// # Returns
+    /// - `Ok(SigningKeysMap)` on success, mapping input index to keys used for signing
+    /// - `Err((SigningKeysMap, SigningErrors))` on failure, containing both partial success info and errors
+    pub fn sign<C, K>(
+        &mut self,
+        k: &K,
+        secp: &secp256k1::Secp256k1<C>,
+    ) -> Result<
+        miniscript::bitcoin::psbt::SigningKeysMap,
+        (
+            miniscript::bitcoin::psbt::SigningKeysMap,
+            miniscript::bitcoin::psbt::SigningErrors,
+        ),
+    >
+    where
+        C: secp256k1::Signing + secp256k1::Verification,
+        K: miniscript::bitcoin::psbt::GetKey,
+    {
+        match self {
+            BitGoPsbt::BitcoinLike(ref mut psbt, _network) => psbt.sign(k, secp),
+            BitGoPsbt::Zcash(_zcash_psbt, _network) => {
+                // Return an error indicating Zcash signing is not implemented
+                Err((
+                    Default::default(),
+                    std::collections::BTreeMap::from_iter([(
+                        0,
+                        miniscript::bitcoin::psbt::SignError::KeyNotFound,
+                    )]),
+                ))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::fixed_script_wallet::Chain;
-    use crate::fixed_script_wallet::{RootWalletKeys, WalletScripts};
+    use crate::fixed_script_wallet::WalletScripts;
     use crate::test_utils::fixtures;
+    use crate::test_utils::fixtures::assert_hex_eq;
     use base64::engine::{general_purpose::STANDARD as BASE64_STANDARD, Engine};
     use miniscript::bitcoin::consensus::Decodable;
     use miniscript::bitcoin::Transaction;
@@ -385,17 +426,63 @@ mod tests {
         output.script_pubkey.to_hex_string()
     }
 
+    type PartialSignatures =
+        std::collections::BTreeMap<crate::bitcoin::PublicKey, crate::bitcoin::ecdsa::Signature>;
+
+    fn assert_eq_partial_signatures(
+        actual: &PartialSignatures,
+        expected: &PartialSignatures,
+    ) -> Result<(), String> {
+        assert_eq!(
+            actual.len(),
+            expected.len(),
+            "Partial signatures should match"
+        );
+        for (actual_sig, expected_sig) in actual.iter().zip(expected.iter()) {
+            assert_eq!(actual_sig.0, expected_sig.0, "Public key should match");
+            assert_hex_eq(
+                &hex::encode(actual_sig.1.serialize()),
+                &hex::encode(expected_sig.1.serialize()),
+                "Signature",
+            )?;
+        }
+        Ok(())
+    }
+
     // ensure we can put the first signature (user signature) on an unsigned PSBT
     fn assert_half_sign(
-        network: Network,
-        tx_format: fixtures::TxFormat,
         unsigned_bitgo_psbt: &BitGoPsbt,
+        halfsigned_bitgo_psbt: &BitGoPsbt,
         wallet_keys: &fixtures::XprvTriple,
         input_index: usize,
-        input_fixture: &fixtures::PsbtInputFixture,
-        halfsigned_fixture: &fixtures::PsbtInputFixture,
     ) -> Result<(), String> {
         let user_key = wallet_keys.user_key();
+
+        // Clone the unsigned PSBT and sign with user key
+        let mut signed_psbt = unsigned_bitgo_psbt.clone();
+        let secp = secp256k1::Secp256k1::new();
+
+        // Sign with user key using the new sign method
+        signed_psbt
+            .sign(user_key, &secp)
+            .map_err(|(_num_keys, errors)| format!("Failed to sign PSBT: {:?}", errors))?;
+
+        // Extract partial signatures from the signed input
+        let signed_input = match &signed_psbt {
+            BitGoPsbt::BitcoinLike(psbt, _) => &psbt.inputs[input_index],
+            BitGoPsbt::Zcash(_, _) => {
+                return Err("Zcash signing not yet implemented".to_string());
+            }
+        };
+        let actual_partial_sigs = signed_input.partial_sigs.clone();
+
+        // Get expected partial signatures from halfsigned fixture
+        let expected_partial_sigs = halfsigned_bitgo_psbt.clone().into_psbt().inputs[input_index]
+            .partial_sigs
+            .clone();
+
+        assert_eq_partial_signatures(&actual_partial_sigs, &expected_partial_sigs)?;
+
         Ok(())
     }
 
@@ -527,18 +614,23 @@ mod tests {
 
         let psbt_input_stages = psbt_input_stages.unwrap();
 
-        assert_half_sign(
-            network,
-            tx_format,
-            &psbt_stages
-                .unsigned
-                .to_bitgo_psbt(network)
-                .expect("Failed to convert to BitGo PSBT"),
-            &psbt_input_stages.wallet_keys,
-            psbt_input_stages.input_index,
-            &psbt_input_stages.input_fixture_unsigned,
-            &psbt_input_stages.input_fixture_halfsigned,
-        )?;
+        if script_type != fixtures::ScriptType::TaprootKeypath
+            && script_type != fixtures::ScriptType::P2trMusig2
+            && script_type != fixtures::ScriptType::P2tr
+        {
+            assert_half_sign(
+                &psbt_stages
+                    .unsigned
+                    .to_bitgo_psbt(network)
+                    .expect("Failed to convert to BitGo PSBT"),
+                &psbt_stages
+                    .halfsigned
+                    .to_bitgo_psbt(network)
+                    .expect("Failed to convert to BitGo PSBT"),
+                &psbt_input_stages.wallet_keys,
+                psbt_input_stages.input_index,
+            )?;
+        }
 
         assert_full_signed_matches_wallet_scripts(
             network,

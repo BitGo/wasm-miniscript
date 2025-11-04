@@ -397,6 +397,22 @@ pub enum PsbtInputFixture {
     P2shP2pk(P2shP2pkInput),
 }
 
+impl PsbtInputFixture {
+    /// Get partial signatures from PSBT input fixtures that support them.
+    /// Returns None for input types that don't use ECDSA partial signatures (e.g., Taproot).
+    pub fn partial_sigs(&self) -> Option<&Vec<PartialSig>> {
+        match self {
+            PsbtInputFixture::P2sh(fixture) => Some(&fixture.partial_sig),
+            PsbtInputFixture::P2shP2wsh(fixture) => Some(&fixture.partial_sig),
+            PsbtInputFixture::P2wsh(fixture) => Some(&fixture.partial_sig),
+            PsbtInputFixture::P2shP2pk(fixture) => Some(&fixture.partial_sig),
+            PsbtInputFixture::P2trLegacy(_)
+            | PsbtInputFixture::P2trMusig2ScriptPath(_)
+            | PsbtInputFixture::P2trMusig2KeyPath(_) => None,
+        }
+    }
+}
+
 // Finalized input type structs (depend on helper types above)
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
