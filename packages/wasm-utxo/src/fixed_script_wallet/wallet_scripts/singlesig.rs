@@ -31,11 +31,11 @@ impl ScriptP2shP2pk {
 
 #[cfg(test)]
 mod tests {
+    use miniscript::bitcoin::bip32::Xpub;
+
     use super::*;
     use crate::bitcoin::secp256k1::Secp256k1;
-    use crate::fixed_script_wallet::test_utils::fixtures::{
-        load_psbt_fixture, parse_wallet_keys, SignatureState,
-    };
+    use crate::fixed_script_wallet::test_utils::fixtures::{load_psbt_fixture, SignatureState};
 
     #[test]
     fn test_p2sh_p2pk_script_generation_from_fixture() {
@@ -63,26 +63,11 @@ mod tests {
             .expect("No partial signature found");
 
         // Parse the wallet keys
-        let xprvs = parse_wallet_keys(&fixture).expect("Failed to parse wallet keys");
+        let xprvs = fixture
+            .get_wallet_xprvs()
+            .expect("Failed to parse wallet keys");
         let secp = Secp256k1::new();
-
-        // Find which key matches the expected pubkey
-        let mut matching_key = None;
-        for xprv in &xprvs {
-            let xpub = crate::bitcoin::bip32::Xpub::from_priv(&secp, xprv);
-            // Convert secp256k1::PublicKey to bitcoin::PublicKey
-            let bitcoin_pubkey = crate::bitcoin::PublicKey::new(xpub.public_key);
-            let compressed_pubkey = CompressedPublicKey::try_from(bitcoin_pubkey)
-                .expect("Failed to convert to compressed pubkey");
-            let pubkey_hex = hex::encode(compressed_pubkey.to_bytes());
-
-            if pubkey_hex == *expected_pubkey {
-                matching_key = Some(compressed_pubkey);
-                break;
-            }
-        }
-
-        let pubkey = matching_key.expect("Could not find matching pubkey in wallet keys");
+        let pubkey = Xpub::from_priv(&secp, xprvs.user_key()).to_pub();
 
         // Build the p2sh-p2pk script
         let script = ScriptP2shP2pk::new(pubkey);

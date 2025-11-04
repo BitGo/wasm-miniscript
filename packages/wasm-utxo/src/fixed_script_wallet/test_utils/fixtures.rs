@@ -16,7 +16,7 @@
 //!     .expect("Failed to decode PSBT");
 //!
 //! // Parse wallet keys (xprv)
-//! let xprvs = parse_wallet_keys(&fixture)
+//! let xprvs = fixture.get_wallet_xprvs()
 //!     .expect("Failed to parse wallet keys");
 //!
 //! // Access fixture data
@@ -38,9 +38,49 @@
 //! }
 //! ```
 
+use std::str::FromStr;
+
+use crate::{bitcoin::bip32::Xpriv, fixed_script_wallet::RootWalletKeys};
+use miniscript::bitcoin::bip32::Xpub;
 use serde::{Deserialize, Serialize};
 
 use crate::Network;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct XprvTriple([Xpriv; 3]);
+
+impl XprvTriple {
+    pub fn new(xprvs: [Xpriv; 3]) -> Self {
+        Self(xprvs)
+    }
+
+    pub fn from_strings(strings: Vec<String>) -> Result<Self, Box<dyn std::error::Error>> {
+        let xprvs = strings
+            .iter()
+            .map(|s| Xpriv::from_str(s).map_err(|e| Box::new(e) as Box<dyn std::error::Error>))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self::new(
+            xprvs.try_into().expect("Expected exactly 3 xprvs"),
+        ))
+    }
+
+    pub fn user_key(&self) -> &Xpriv {
+        &self.0[0]
+    }
+
+    pub fn backup_key(&self) -> &Xpriv {
+        &self.0[1]
+    }
+
+    pub fn bitgo_key(&self) -> &Xpriv {
+        &self.0[2]
+    }
+
+    pub fn to_root_wallet_keys(&self) -> RootWalletKeys {
+        let secp = crate::bitcoin::secp256k1::Secp256k1::new();
+        RootWalletKeys::new(self.0.map(|x| Xpub::from_priv(&secp, &x)))
+    }
+}
 
 // Basic helper types (no dependencies on other types in this file)
 
@@ -511,23 +551,18 @@ impl PsbtStages {
             tx_format,
         )
         .expect("Failed to load fullsigned fixture");
-        let wallet_keys_unsigned =
-            parse_wallet_keys(&unsigned).expect("Failed to parse wallet keys");
-        let wallet_keys_halfsigned =
-            parse_wallet_keys(&halfsigned).expect("Failed to parse wallet keys");
-        let wallet_keys_fullsigned =
-            parse_wallet_keys(&fullsigned).expect("Failed to parse wallet keys");
+        let wallet_keys_unsigned = unsigned
+            .get_wallet_xprvs()
+            .expect("Failed to parse wallet keys");
+        let wallet_keys_halfsigned = halfsigned
+            .get_wallet_xprvs()
+            .expect("Failed to parse wallet keys");
+        let wallet_keys_fullsigned = fullsigned
+            .get_wallet_xprvs()
+            .expect("Failed to parse wallet keys");
         assert_eq!(wallet_keys_unsigned, wallet_keys_halfsigned);
         assert_eq!(wallet_keys_unsigned, wallet_keys_fullsigned);
-        let secp = crate::bitcoin::secp256k1::Secp256k1::new();
-        let wallet_keys = crate::fixed_script_wallet::RootWalletKeys::new(
-            wallet_keys_unsigned
-                .iter()
-                .map(|x| crate::bitcoin::bip32::Xpub::from_priv(&secp, x))
-                .collect::<Vec<_>>()
-                .try_into()
-                .expect("Failed to convert to XpubTriple"),
-        );
+        let wallet_keys = wallet_keys_unsigned.to_root_wallet_keys();
 
         Ok(Self {
             network,
@@ -612,6 +647,11 @@ impl PsbtFixture {
             network,
         )?;
         Ok(psbt)
+    }
+
+    /// Parse wallet keys from fixture (xprv strings)
+    pub fn get_wallet_xprvs(&self) -> Result<XprvTriple, Box<dyn std::error::Error>> {
+        XprvTriple::from_strings(self.wallet_keys.clone())
     }
 
     pub fn find_input_with_script_type(
@@ -805,19 +845,6 @@ pub fn decode_psbt_from_fixture(
     let psbt_bytes = base64::prelude::BASE64_STANDARD.decode(&fixture.psbt_base64)?;
     let psbt = crate::bitcoin::psbt::Psbt::deserialize(&psbt_bytes)?;
     Ok(psbt)
-}
-
-/// Parse wallet keys from fixture (xprv strings)
-pub fn parse_wallet_keys(
-    fixture: &PsbtFixture,
-) -> Result<Vec<crate::bitcoin::bip32::Xpriv>, Box<dyn std::error::Error>> {
-    use std::str::FromStr;
-
-    fixture
-        .wallet_keys
-        .iter()
-        .map(|key_str| crate::bitcoin::bip32::Xpriv::from_str(key_str).map_err(|e| e.into()))
-        .collect()
 }
 
 // Helper functions for validation
@@ -1382,10 +1409,6 @@ mod tests {
         let psbt = decode_psbt_from_fixture(&fixture).expect("Failed to decode PSBT");
         assert_eq!(psbt.inputs.len(), 7);
         assert_eq!(psbt.outputs.len(), 5);
-
-        // Parse wallet keys
-        let xprvs = parse_wallet_keys(&fixture).expect("Failed to parse wallet keys");
-        assert_eq!(xprvs.len(), 3);
     }
 
     #[test]
