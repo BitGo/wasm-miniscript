@@ -525,7 +525,7 @@ pub struct PsbtFixture {
 pub struct PsbtStages {
     pub network: Network,
     pub tx_format: TxFormat,
-    pub wallet_keys: crate::fixed_script_wallet::RootWalletKeys,
+    pub wallet_keys: XprvTriple,
     pub unsigned: PsbtFixture,
     pub halfsigned: PsbtFixture,
     pub fullsigned: PsbtFixture,
@@ -562,12 +562,11 @@ impl PsbtStages {
             .expect("Failed to parse wallet keys");
         assert_eq!(wallet_keys_unsigned, wallet_keys_halfsigned);
         assert_eq!(wallet_keys_unsigned, wallet_keys_fullsigned);
-        let wallet_keys = wallet_keys_unsigned.to_root_wallet_keys();
 
         Ok(Self {
             network,
             tx_format,
-            wallet_keys,
+            wallet_keys: wallet_keys_unsigned.clone(),
             unsigned,
             halfsigned,
             fullsigned,
@@ -578,7 +577,7 @@ impl PsbtStages {
 pub struct PsbtInputStages {
     pub network: Network,
     pub tx_format: TxFormat,
-    pub wallet_keys: crate::fixed_script_wallet::RootWalletKeys,
+    pub wallet_keys: XprvTriple,
     pub wallet_script_type: ScriptType,
     pub input_index: usize,
     pub input_fixture_unsigned: PsbtInputFixture,

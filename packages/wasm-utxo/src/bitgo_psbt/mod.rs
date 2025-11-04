@@ -390,12 +390,12 @@ mod tests {
         network: Network,
         tx_format: fixtures::TxFormat,
         unsigned_bitgo_psbt: &BitGoPsbt,
-        wallet_keys: &RootWalletKeys,
+        wallet_keys: &fixtures::XprvTriple,
         input_index: usize,
         input_fixture: &fixtures::PsbtInputFixture,
         halfsigned_fixture: &fixtures::PsbtInputFixture,
     ) -> Result<(), String> {
-        // todo!()
+        let user_key = wallet_keys.user_key();
         Ok(())
     }
 
@@ -403,14 +403,14 @@ mod tests {
         network: Network,
         tx_format: fixtures::TxFormat,
         fixture: &fixtures::PsbtFixture,
-        wallet_keys: &RootWalletKeys,
+        wallet_keys: &fixtures::XprvTriple,
         input_index: usize,
         input_fixture: &fixtures::PsbtInputFixture,
     ) -> Result<(), String> {
         let (chain, index) =
             parse_fixture_paths(input_fixture).expect("Failed to parse fixture paths");
         let scripts = WalletScripts::from_wallet_keys(
-            wallet_keys,
+            &wallet_keys.to_root_wallet_keys(),
             chain,
             index,
             &network.output_script_support(),
