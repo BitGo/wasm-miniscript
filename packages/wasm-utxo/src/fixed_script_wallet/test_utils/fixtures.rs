@@ -1103,26 +1103,133 @@ impl ScriptType {
 ///     let fixture = load_psbt_fixture_with_network(network, SignatureState::Fullsigned).unwrap();
 ///     // ... test logic using both network and format
 /// });
+///
+/// // With ignored networks:
+/// test_psbt_fixtures!(test_my_feature, network, format, {
+///     // test body
+/// }, ignore: [BitcoinGold, Zcash]);
 /// ```
+///
+/// This macro generates separate test functions for each network to enable proper
+/// `#[ignore]` support. For a test named `test_foo`, it generates:
+/// - `test_foo_bitcoin`
+/// - `test_foo_bitcoin_cash`
+/// - `test_foo_zcash` (with #[ignore] if in ignore list)
+/// - etc.
 #[macro_export]
 macro_rules! test_psbt_fixtures {
+    // Pattern without ignored networks - delegates to the pattern with ignore (backward compatible)
     ($test_name:ident, $network:ident, $format:ident, $body:block) => {
-        #[rstest::rstest]
-        #[case::bitcoin($crate::Network::Bitcoin)]
-        #[case::bitcoin_cash($crate::Network::BitcoinCash)]
-        #[case::ecash($crate::Network::Ecash)]
-        #[case::bitcoin_gold($crate::Network::BitcoinGold)]
-        #[case::dash($crate::Network::Dash)]
-        #[case::dogecoin($crate::Network::Dogecoin)]
-        #[case::litecoin($crate::Network::Litecoin)]
-        #[case::zcash($crate::Network::Zcash)]
-        fn $test_name(
-            #[case] $network: $crate::Network,
-            #[values(
-                $crate::fixed_script_wallet::test_utils::fixtures::TxFormat::Psbt,
-                $crate::fixed_script_wallet::test_utils::fixtures::TxFormat::PsbtLite
-            )] $format: $crate::fixed_script_wallet::test_utils::fixtures::TxFormat
-        ) $body
+        $crate::test_psbt_fixtures!($test_name, $network, $format, $body, ignore: []);
+    };
+
+    // Pattern with ignored networks
+    ($test_name:ident, $network:ident, $format:ident, $body:block, ignore: [$($ignore_net:ident),* $(,)?]) => {
+        $crate::test_psbt_fixtures!(@generate_test $test_name, bitcoin, Bitcoin, $crate::Network::Bitcoin, $network, $format, $body, [$($ignore_net),*]);
+        $crate::test_psbt_fixtures!(@generate_test $test_name, bitcoin_cash, BitcoinCash, $crate::Network::BitcoinCash, $network, $format, $body, [$($ignore_net),*]);
+        $crate::test_psbt_fixtures!(@generate_test $test_name, ecash, Ecash, $crate::Network::Ecash, $network, $format, $body, [$($ignore_net),*]);
+        $crate::test_psbt_fixtures!(@generate_test $test_name, bitcoin_gold, BitcoinGold, $crate::Network::BitcoinGold, $network, $format, $body, [$($ignore_net),*]);
+        $crate::test_psbt_fixtures!(@generate_test $test_name, dash, Dash, $crate::Network::Dash, $network, $format, $body, [$($ignore_net),*]);
+        $crate::test_psbt_fixtures!(@generate_test $test_name, dogecoin, Dogecoin, $crate::Network::Dogecoin, $network, $format, $body, [$($ignore_net),*]);
+        $crate::test_psbt_fixtures!(@generate_test $test_name, litecoin, Litecoin, $crate::Network::Litecoin, $network, $format, $body, [$($ignore_net),*]);
+        $crate::test_psbt_fixtures!(@generate_test $test_name, zcash, Zcash, $crate::Network::Zcash, $network, $format, $body, [$($ignore_net),*]);
+    };
+
+    // Internal: Generate a test function for a specific network
+    (@generate_test $test_name:ident, $net_suffix:ident, $net_id:ident, $net_value:path, $network:ident, $format:ident, $body:block, []) => {
+        ::pastey::paste! {
+            #[::rstest::rstest]
+            fn [<$test_name _ $net_suffix>](
+                #[values(
+                    $crate::fixed_script_wallet::test_utils::fixtures::TxFormat::Psbt,
+                    $crate::fixed_script_wallet::test_utils::fixtures::TxFormat::PsbtLite
+                )]
+                $format: $crate::fixed_script_wallet::test_utils::fixtures::TxFormat
+            ) {
+                let $network = $net_value;
+                $body
+            }
+        }
+    };
+
+    (@generate_test $test_name:ident, $net_suffix:ident, $net_id:ident, $net_value:path, $network:ident, $format:ident, $body:block, [$($ignore_net:ident),+]) => {
+        $crate::test_psbt_fixtures!(@check_ignore_and_generate $test_name, $net_suffix, $net_id, $net_value, $network, $format, $body, $($ignore_net),+);
+    };
+
+    // Check if this network should be ignored and generate accordingly
+    (@check_ignore_and_generate $test_name:ident, $net_suffix:ident, $net_id:ident, $net_value:path, $network:ident, $format:ident, $body:block, $($ignore_net:ident),+) => {
+        $crate::test_psbt_fixtures!(@is_ignored $test_name, $net_suffix, $net_id, $net_value, $network, $format, $body, false, $($ignore_net),+);
+    };
+
+    // Check if current network matches any in the ignore list
+    (@is_ignored $test_name:ident, $net_suffix:ident, Bitcoin, $net_value:path, $network:ident, $format:ident, $body:block, $ignored:tt, Bitcoin $(, $rest:ident)*) => {
+        $crate::test_psbt_fixtures!(@emit_test $test_name, $net_suffix, $net_value, $network, $format, $body, true);
+    };
+    (@is_ignored $test_name:ident, $net_suffix:ident, BitcoinCash, $net_value:path, $network:ident, $format:ident, $body:block, $ignored:tt, BitcoinCash $(, $rest:ident)*) => {
+        $crate::test_psbt_fixtures!(@emit_test $test_name, $net_suffix, $net_value, $network, $format, $body, true);
+    };
+    (@is_ignored $test_name:ident, $net_suffix:ident, Ecash, $net_value:path, $network:ident, $format:ident, $body:block, $ignored:tt, Ecash $(, $rest:ident)*) => {
+        $crate::test_psbt_fixtures!(@emit_test $test_name, $net_suffix, $net_value, $network, $format, $body, true);
+    };
+    (@is_ignored $test_name:ident, $net_suffix:ident, BitcoinGold, $net_value:path, $network:ident, $format:ident, $body:block, $ignored:tt, BitcoinGold $(, $rest:ident)*) => {
+        $crate::test_psbt_fixtures!(@emit_test $test_name, $net_suffix, $net_value, $network, $format, $body, true);
+    };
+    (@is_ignored $test_name:ident, $net_suffix:ident, Dash, $net_value:path, $network:ident, $format:ident, $body:block, $ignored:tt, Dash $(, $rest:ident)*) => {
+        $crate::test_psbt_fixtures!(@emit_test $test_name, $net_suffix, $net_value, $network, $format, $body, true);
+    };
+    (@is_ignored $test_name:ident, $net_suffix:ident, Dogecoin, $net_value:path, $network:ident, $format:ident, $body:block, $ignored:tt, Dogecoin $(, $rest:ident)*) => {
+        $crate::test_psbt_fixtures!(@emit_test $test_name, $net_suffix, $net_value, $network, $format, $body, true);
+    };
+    (@is_ignored $test_name:ident, $net_suffix:ident, Litecoin, $net_value:path, $network:ident, $format:ident, $body:block, $ignored:tt, Litecoin $(, $rest:ident)*) => {
+        $crate::test_psbt_fixtures!(@emit_test $test_name, $net_suffix, $net_value, $network, $format, $body, true);
+    };
+    (@is_ignored $test_name:ident, $net_suffix:ident, Zcash, $net_value:path, $network:ident, $format:ident, $body:block, $ignored:tt, Zcash $(, $rest:ident)*) => {
+        $crate::test_psbt_fixtures!(@emit_test $test_name, $net_suffix, $net_value, $network, $format, $body, true);
+    };
+
+    // No match - try next
+    (@is_ignored $test_name:ident, $net_suffix:ident, $net_id:ident, $net_value:path, $network:ident, $format:ident, $body:block, $ignored:tt, $other:ident $(, $rest:ident)*) => {
+        $crate::test_psbt_fixtures!(@is_ignored $test_name, $net_suffix, $net_id, $net_value, $network, $format, $body, $ignored $(, $rest)*);
+    };
+
+    // Exhausted list without match - not ignored
+    (@is_ignored $test_name:ident, $net_suffix:ident, $net_id:ident, $net_value:path, $network:ident, $format:ident, $body:block, $ignored:tt) => {
+        $crate::test_psbt_fixtures!(@emit_test $test_name, $net_suffix, $net_value, $network, $format, $body, false);
+    };
+
+    // Emit test function - not ignored
+    (@emit_test $test_name:ident, $net_suffix:ident, $net_value:path, $network:ident, $format:ident, $body:block, false) => {
+        ::pastey::paste! {
+            #[::rstest::rstest]
+            fn [<$test_name _ $net_suffix>](
+                #[values(
+                    $crate::fixed_script_wallet::test_utils::fixtures::TxFormat::Psbt,
+                    $crate::fixed_script_wallet::test_utils::fixtures::TxFormat::PsbtLite
+                )]
+                $format: $crate::fixed_script_wallet::test_utils::fixtures::TxFormat
+            ) {
+                let $network = $net_value;
+                $body
+            }
+        }
+    };
+
+    // Emit test function - ignored
+    (@emit_test $test_name:ident, $net_suffix:ident, $net_value:path, $network:ident, $format:ident, $body:block, true) => {
+        ::pastey::paste! {
+            #[ignore]
+            #[::rstest::rstest]
+            fn [<$test_name _ $net_suffix>](
+                #[values(
+                    $crate::fixed_script_wallet::test_utils::fixtures::TxFormat::Psbt,
+                    $crate::fixed_script_wallet::test_utils::fixtures::TxFormat::PsbtLite
+                )]
+                $format: $crate::fixed_script_wallet::test_utils::fixtures::TxFormat
+            ) {
+                let $network = $net_value;
+                $body
+            }
+        }
     };
 }
 
@@ -1239,5 +1346,55 @@ mod tests {
         assert_eq!(p2tr_musig2_fixtures[0].pubkeys.len(), 3);
         assert_eq!(p2tr_musig2_fixtures[0].control_blocks.len(), 2);
         assert_eq!(p2tr_musig2_fixtures[0].tap_tree.leaves.len(), 2);
+    }
+
+    #[test]
+    fn test_find_input_with_script_type() {
+        let fixture = load_psbt_fixture("bitcoin", SignatureState::Fullsigned)
+            .expect("Failed to load fixture");
+
+        // Test finding P2SH input
+        let (index, input) = fixture
+            .find_input_with_script_type(ScriptType::P2sh)
+            .expect("Failed to find P2SH input");
+        assert_eq!(index, 0);
+        assert!(matches!(input, PsbtInputFixture::P2sh(_)));
+
+        // Test finding P2WSH input
+        let (index, input) = fixture
+            .find_input_with_script_type(ScriptType::P2wsh)
+            .expect("Failed to find P2WSH input");
+        assert_eq!(index, 2);
+        assert!(matches!(input, PsbtInputFixture::P2wsh(_)));
+    }
+
+    #[test]
+    fn test_find_finalized_input_with_script_type() {
+        let fixture = load_psbt_fixture("bitcoin", SignatureState::Fullsigned)
+            .expect("Failed to load fixture");
+
+        // Test finding P2SH finalized input
+        let (index, input) = fixture
+            .find_finalized_input_with_script_type(ScriptType::P2sh)
+            .expect("Failed to find P2SH finalized input");
+        assert_eq!(index, 0);
+        assert!(matches!(input, PsbtFinalInputFixture::P2sh(_)));
+
+        // Test finding taproot key path finalized input
+        let (index, input) = fixture
+            .find_finalized_input_with_script_type(ScriptType::TaprootKeypath)
+            .expect("Failed to find taproot key path finalized input");
+        assert_eq!(index, 5);
+        assert!(matches!(input, PsbtFinalInputFixture::P2trMusig2KeyPath(_)));
+
+        // Test with unsigned fixture (should return error)
+        let unsigned_fixture = load_psbt_fixture("bitcoin", SignatureState::Unsigned)
+            .expect("Failed to load unsigned fixture");
+        let result = unsigned_fixture.find_finalized_input_with_script_type(ScriptType::P2sh);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "No finalized inputs available in fixture"
+        );
     }
 }
