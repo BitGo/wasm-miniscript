@@ -182,31 +182,28 @@ psbt: None
 │  │  ├─ sighash_type: 0u32
 │  │  ├─ sighash_type: SIGHASH_DEFAULT
 │  │  └─ proprietary: 5u64
-│  │     ├─ key: None
-│  │     │  ├─ prefix: BITGO
-│  │     │  ├─ subtype: 1u8
-│  │     │  ├─ key_data: 15c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16eb5ad29a85aed24de2880e774caaf624f9cb1be09c67ed4aefbb9b7bc12ddf1a (64 bytes)
-│  │     │  └─ value: 021d978a17486ff9e47c82990269e531fc63981419d4ce73ee8bd2c99661c53953020fdea69e40a3adef3cdc7fa6f3af02f4c9d9e3254503c96a6a2b4aa66e778171 (66 bytes)
-│  │     ├─ key: None
-│  │     │  ├─ prefix: BITGO
-│  │     │  ├─ subtype: 2u8
-│  │     │  ├─ key_data: 020fdea69e40a3adef3cdc7fa6f3af02f4c9d9e3254503c96a6a2b4aa66e77817115c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16 (65 bytes)
-│  │     │  └─ value: 02826949740dff45d408b1f19d94c720f53411e02c525b28ab3c593b6b530fe0370374b8a0ffcaaaee6b772dac5f7c23ef33670b32ec77c6d41efb3c36df2165a094 (66 bytes)
-│  │     ├─ key: None
-│  │     │  ├─ prefix: BITGO
-│  │     │  ├─ subtype: 2u8
-│  │     │  ├─ key_data: 021d978a17486ff9e47c82990269e531fc63981419d4ce73ee8bd2c99661c5395315c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16 (65 bytes)
-│  │     │  └─ value: 03a4aaf46f3a0bc39a73855fa875b2f2f04bdb06235afbaedf857b593dddc63cb402cdb7f1a93ec526282198d834423371757e8f43932d03b9f43c3f7378300ae508 (66 bytes)
-│  │     ├─ key: None
-│  │     │  ├─ prefix: BITGO
-│  │     │  ├─ subtype: 3u8
-│  │     │  ├─ key_data: 020fdea69e40a3adef3cdc7fa6f3af02f4c9d9e3254503c96a6a2b4aa66e77817115c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16 (65 bytes)
-│  │     │  └─ value: fbdc39c3b8ffca4e6caf3298fa1a4be546b99163c2f21bd374d2254ec5b3c0f4 (32 bytes)
-│  │     └─ key: None
-│  │        ├─ prefix: BITGO
-│  │        ├─ subtype: 3u8
-│  │        ├─ key_data: 021d978a17486ff9e47c82990269e531fc63981419d4ce73ee8bd2c99661c5395315c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16 (65 bytes)
-│  │        └─ value: 1cd8a0c0598b0d88f889fdf9a3140f8f088e2187803a2faaee3f13c0163eb76c (32 bytes)
+│  │     ├─ musig2_participants: None
+│  │     │  ├─ tap_output_key: 15c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16 (32 bytes)
+│  │     │  ├─ tap_internal_key: eb5ad29a85aed24de2880e774caaf624f9cb1be09c67ed4aefbb9b7bc12ddf1a (32 bytes)
+│  │     │  └─ participant_pub_keys: 2u64
+│  │     │     ├─ participant_0: 021d978a17486ff9e47c82990269e531fc63981419d4ce73ee8bd2c99661c53953 (33 bytes)
+│  │     │     └─ participant_1: 020fdea69e40a3adef3cdc7fa6f3af02f4c9d9e3254503c96a6a2b4aa66e778171 (33 bytes)
+│  │     ├─ musig2_pub_nonce: None
+│  │     │  ├─ participant_pub_key: 020fdea69e40a3adef3cdc7fa6f3af02f4c9d9e3254503c96a6a2b4aa66e778171 (33 bytes)
+│  │     │  ├─ tap_output_key: 15c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16 (32 bytes)
+│  │     │  └─ pub_nonce: 02826949740dff45d408b1f19d94c720f53411e02c525b28ab3c593b6b530fe0370374b8a0ffcaaaee6b772dac5f7c23ef33670b32ec77c6d41efb3c36df2165a094 (66 bytes)
+│  │     ├─ musig2_pub_nonce: None
+│  │     │  ├─ participant_pub_key: 021d978a17486ff9e47c82990269e531fc63981419d4ce73ee8bd2c99661c53953 (33 bytes)
+│  │     │  ├─ tap_output_key: 15c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16 (32 bytes)
+│  │     │  └─ pub_nonce: 03a4aaf46f3a0bc39a73855fa875b2f2f04bdb06235afbaedf857b593dddc63cb402cdb7f1a93ec526282198d834423371757e8f43932d03b9f43c3f7378300ae508 (66 bytes)
+│  │     ├─ musig2_partial_sig: None
+│  │     │  ├─ participant_pub_key: 020fdea69e40a3adef3cdc7fa6f3af02f4c9d9e3254503c96a6a2b4aa66e778171 (33 bytes)
+│  │     │  ├─ tap_output_key: 15c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16 (32 bytes)
+│  │     │  └─ partial_sig: fbdc39c3b8ffca4e6caf3298fa1a4be546b99163c2f21bd374d2254ec5b3c0f4 (32 bytes)
+│  │     └─ musig2_partial_sig: None
+│  │        ├─ participant_pub_key: 021d978a17486ff9e47c82990269e531fc63981419d4ce73ee8bd2c99661c53953 (33 bytes)
+│  │        ├─ tap_output_key: 15c5815026f6a54b10194fc6980f1866a02d9ec128533c7997cdb4289bf3ef16 (32 bytes)
+│  │        └─ partial_sig: 1cd8a0c0598b0d88f889fdf9a3140f8f088e2187803a2faaee3f13c0163eb76c (32 bytes)
 │  └─ input_6: None
 │     ├─ non_witness_utxo: 97441d99a8d66f124ab3c9de26b87bd00aeb1547051c842a88165c1b089ee902 (32 bytes)
 │     ├─ redeem_script: 210336ef228ffe9b8efffba052c32d334660dd1f8366cf8fe44ae5aa672b6b629095ac (35 bytes)
