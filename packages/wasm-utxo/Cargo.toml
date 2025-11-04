@@ -20,6 +20,7 @@ miniscript = { git = "https://github.com/BitGo/rust-miniscript", tag = "miniscri
 bech32 = "0.11"
 musig2 = { version = "0.3.1", default-features = false, features = ["k256"] }
 getrandom = { version = "0.2", features = ["js"] }
+pastey = "0.1"
 
 [dev-dependencies]
 base64 = "0.22.1"
@@ -28,6 +29,7 @@ serde_json = "1.0"
 hex = "0.4"
 wasm-bindgen-test = "0.3"
 rstest = "0.26.1"
+pastey = "0.1"
 
 [profile.release]
 # this is required to make webpack happy

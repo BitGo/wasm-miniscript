@@ -1,10 +1,10 @@
 /// Code relating to script types of BitGo's 2-of-3 multisig wallets.
-mod bitgo_musig;
+pub mod bitgo_musig;
 mod checkmultisig;
 mod checksigverify;
 mod singlesig;
 
-pub use bitgo_musig::{key_agg_bitgo_p2tr_legacy, BitGoMusigError};
+pub use bitgo_musig::BitGoMusigError;
 pub use checkmultisig::{
     build_multisig_script_2_of_3, parse_multisig_script_2_of_3, ScriptP2sh, ScriptP2shP2wsh,
     ScriptP2wsh,

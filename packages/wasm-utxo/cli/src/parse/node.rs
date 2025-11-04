@@ -3,6 +3,10 @@ use bitcoin::consensus::Decodable;
 use bitcoin::hashes::Hash;
 use bitcoin::psbt::Psbt;
 use bitcoin::{Network, ScriptBuf, Transaction};
+use wasm_utxo::bitgo_psbt::{
+    BitGoKeyValue, Musig2PartialSig, Musig2Participants, Musig2PubNonce, ProprietaryKeySubtype,
+    BITGO,
+};
 
 pub use crate::node::{Node, Primitive};
 
@@ -39,24 +43,151 @@ fn bip32_derivations_to_nodes(
         .collect()
 }
 
+fn musig2_participants_to_node(participants: &Musig2Participants) -> Node {
+    let mut node = Node::new("musig2_participants", Primitive::None);
+    node.add_child(Node::new(
+        "tap_output_key",
+        Primitive::Buffer(participants.tap_output_key.serialize().to_vec()),
+    ));
+    node.add_child(Node::new(
+        "tap_internal_key",
+        Primitive::Buffer(participants.tap_internal_key.serialize().to_vec()),
+    ));
+
+    let mut participants_node = Node::new("participant_pub_keys", Primitive::U64(2));
+    for (i, pub_key) in participants.participant_pub_keys.iter().enumerate() {
+        let pub_key_vec: Vec<u8> = pub_key.to_bytes().to_vec();
+        participants_node.add_child(Node::new(
+            format!("participant_{}", i),
+            Primitive::Buffer(pub_key_vec),
+        ));
+    }
+    node.add_child(participants_node);
+    node
+}
+
+fn musig2_pub_nonce_to_node(nonce: &Musig2PubNonce) -> Node {
+    let mut node = Node::new("musig2_pub_nonce", Primitive::None);
+    node.add_child(Node::new(
+        "participant_pub_key",
+        Primitive::Buffer(nonce.participant_pub_key.to_bytes().to_vec()),
+    ));
+    node.add_child(Node::new(
+        "tap_output_key",
+        Primitive::Buffer(nonce.tap_output_key.serialize().to_vec()),
+    ));
+    node.add_child(Node::new(
+        "pub_nonce",
+        Primitive::Buffer(nonce.pub_nonce.serialize().to_vec()),
+    ));
+    node
+}
+
+fn musig2_partial_sig_to_node(sig: &Musig2PartialSig) -> Node {
+    let mut node = Node::new("musig2_partial_sig", Primitive::None);
+    node.add_child(Node::new(
+        "participant_pub_key",
+        Primitive::Buffer(sig.participant_pub_key.to_bytes().to_vec()),
+    ));
+    node.add_child(Node::new(
+        "tap_output_key",
+        Primitive::Buffer(sig.tap_output_key.serialize().to_vec()),
+    ));
+    node.add_child(Node::new(
+        "partial_sig",
+        Primitive::Buffer(sig.partial_sig.clone()),
+    ));
+    node
+}
+
+fn bitgo_proprietary_to_node(prop_key: &bitcoin::psbt::raw::ProprietaryKey, v: &[u8]) -> Node {
+    // Try to parse as BitGo key-value
+    let v_vec = v.to_vec();
+    let bitgo_kv_result = BitGoKeyValue::from_key_value(prop_key, &v_vec);
+
+    match bitgo_kv_result {
+        Ok(bitgo_kv) => {
+            // Parse based on subtype
+            match bitgo_kv.subtype {
+                ProprietaryKeySubtype::Musig2ParticipantPubKeys => {
+                    match Musig2Participants::from_key_value(&bitgo_kv) {
+                        Ok(participants) => musig2_participants_to_node(&participants),
+                        Err(_) => {
+                            // Fall back to raw display
+                            raw_proprietary_to_node("musig2_participants_error", prop_key, v)
+                        }
+                    }
+                }
+                ProprietaryKeySubtype::Musig2PubNonce => {
+                    match Musig2PubNonce::from_key_value(&bitgo_kv) {
+                        Ok(nonce) => musig2_pub_nonce_to_node(&nonce),
+                        Err(_) => {
+                            // Fall back to raw display
+                            raw_proprietary_to_node("musig2_pub_nonce_error", prop_key, v)
+                        }
+                    }
+                }
+                ProprietaryKeySubtype::Musig2PartialSig => {
+                    match Musig2PartialSig::from_key_value(&bitgo_kv) {
+                        Ok(sig) => musig2_partial_sig_to_node(&sig),
+                        Err(_) => {
+                            // Fall back to raw display
+                            raw_proprietary_to_node("musig2_partial_sig_error", prop_key, v)
+                        }
+                    }
+                }
+                _ => {
+                    // Other BitGo subtypes - show with name
+                    let subtype_name = match bitgo_kv.subtype {
+                        ProprietaryKeySubtype::ZecConsensusBranchId => "zec_consensus_branch_id",
+                        ProprietaryKeySubtype::PayGoAddressAttestationProof => {
+                            "paygo_address_attestation_proof"
+                        }
+                        ProprietaryKeySubtype::Bip322Message => "bip322_message",
+                        _ => "unknown",
+                    };
+                    raw_proprietary_to_node(subtype_name, prop_key, v)
+                }
+            }
+        }
+        Err(_) => {
+            // Not a valid BitGo key-value, show raw
+            raw_proprietary_to_node("unknown", prop_key, v)
+        }
+    }
+}
+
+fn raw_proprietary_to_node(
+    label: &str,
+    prop_key: &bitcoin::psbt::raw::ProprietaryKey,
+    v: &[u8],
+) -> Node {
+    let mut prop_node = Node::new(label, Primitive::None);
+    prop_node.add_child(Node::new(
+        "prefix",
+        Primitive::String(String::from_utf8_lossy(&prop_key.prefix).to_string()),
+    ));
+    prop_node.add_child(Node::new("subtype", Primitive::U8(prop_key.subtype)));
+    prop_node.add_child(Node::new(
+        "key_data",
+        Primitive::Buffer(prop_key.key.to_vec()),
+    ));
+    prop_node.add_child(Node::new("value", Primitive::Buffer(v.to_vec())));
+    prop_node
+}
+
 fn proprietary_to_nodes(
     proprietary: &std::collections::BTreeMap<bitcoin::psbt::raw::ProprietaryKey, Vec<u8>>,
 ) -> Vec<Node> {
     proprietary
         .iter()
         .map(|(prop_key, v)| {
-            let mut prop_node = Node::new("key", Primitive::None);
-            prop_node.add_child(Node::new(
-                "prefix",
-                Primitive::String(String::from_utf8_lossy(&prop_key.prefix).to_string()),
-            ));
-            prop_node.add_child(Node::new("subtype", Primitive::U8(prop_key.subtype)));
-            prop_node.add_child(Node::new(
-                "key_data",
-                Primitive::Buffer(prop_key.key.to_vec()),
-            ));
-            prop_node.add_child(Node::new("value", Primitive::Buffer(v.to_vec())));
-            prop_node
+            // Check if this is a BITGO proprietary key
+            if prop_key.prefix.as_slice() == BITGO {
+                bitgo_proprietary_to_node(prop_key, v)
+            } else {
+                raw_proprietary_to_node("key", prop_key, v)
+            }
         })
         .collect()
 }

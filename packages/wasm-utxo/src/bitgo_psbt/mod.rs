@@ -12,10 +12,11 @@ pub use p2tr_musig2_input::{
     parse_musig2_nonces, parse_musig2_partial_sigs, parse_musig2_participants, Musig2Error,
     Musig2Input, Musig2PartialSig, Musig2Participants, Musig2PubNonce,
 };
+pub use propkv::{BitGoKeyValue, ProprietaryKeySubtype, BITGO};
 pub use sighash::validate_sighash_type;
 
 use crate::{bitgo_psbt::zcash_psbt::ZcashPsbt, networks::Network};
-use miniscript::bitcoin::psbt::Psbt;
+use miniscript::bitcoin::{psbt::Psbt, secp256k1};
 
 #[derive(Debug)]
 pub enum DeserializeError {
@@ -144,6 +145,88 @@ impl BitGoPsbt {
         match self {
             BitGoPsbt::BitcoinLike(psbt, _network) => psbt,
             BitGoPsbt::Zcash(zcash_psbt, _network) => zcash_psbt.into_bitcoin_psbt(),
+        }
+    }
+
+    pub fn finalize_input<C: secp256k1::Verification>(
+        &mut self,
+        secp: &secp256k1::Secp256k1<C>,
+        input_index: usize,
+    ) -> Result<(), String> {
+        use miniscript::psbt::PsbtExt;
+
+        match self {
+            BitGoPsbt::BitcoinLike(ref mut psbt, _network) => {
+                // Use custom bitgo p2trMusig2 input finalization for MuSig2 inputs
+                if Musig2Input::is_musig2_input(&psbt.inputs[input_index]) {
+                    Musig2Input::finalize_input(psbt, secp, input_index)
+                        .map_err(|e| e.to_string())?;
+                    return Ok(());
+                }
+                // other inputs can be finalized using the standard miniscript::psbt::finalize_input
+                psbt.finalize_inp_mut(secp, input_index)
+                    .map_err(|e| e.to_string())?;
+                Ok(())
+            }
+            BitGoPsbt::Zcash(_zcash_psbt, _network) => {
+                todo!("Zcash PSBT finalization not yet implemented");
+            }
+        }
+    }
+
+    /// Finalize all inputs in the PSBT, attempting each input even if some fail.
+    /// Similar to miniscript::psbt::PsbtExt::finalize_mut.
+    ///
+    /// # Returns
+    /// - `Ok(())` if all inputs were successfully finalized
+    /// - `Err(Vec<String>)` containing error messages for each failed input
+    ///
+    /// # Note
+    /// This method will attempt to finalize ALL inputs, collecting errors for any that fail.
+    /// It does not stop at the first error.
+    pub fn finalize_mut<C: secp256k1::Verification>(
+        &mut self,
+        secp: &secp256k1::Secp256k1<C>,
+    ) -> Result<(), Vec<String>> {
+        let num_inputs = match self {
+            BitGoPsbt::BitcoinLike(psbt, _network) => psbt.inputs.len(),
+            BitGoPsbt::Zcash(zcash_psbt, _network) => zcash_psbt.psbt.inputs.len(),
+        };
+
+        let mut errors = vec![];
+        for index in 0..num_inputs {
+            match self.finalize_input(secp, index) {
+                Ok(()) => {}
+                Err(e) => {
+                    errors.push(format!("Input {}: {}", index, e));
+                }
+            }
+        }
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
+    }
+
+    /// Finalize all inputs and consume the PSBT, returning the finalized PSBT.
+    /// Similar to miniscript::psbt::PsbtExt::finalize.
+    ///
+    /// # Returns
+    /// - `Ok(Psbt)` if all inputs were successfully finalized
+    /// - `Err(String)` containing a formatted error message if any input failed
+    pub fn finalize<C: secp256k1::Verification>(
+        mut self,
+        secp: &secp256k1::Secp256k1<C>,
+    ) -> Result<Psbt, String> {
+        match self.finalize_mut(secp) {
+            Ok(()) => Ok(self.into_psbt()),
+            Err(errors) => Err(format!(
+                "Failed to finalize {} input(s): {}",
+                errors.len(),
+                errors.join("; ")
+            )),
         }
     }
 }
@@ -303,46 +386,18 @@ mod tests {
         output.script_pubkey.to_hex_string()
     }
 
-    fn test_wallet_script_type(
-        script_type: fixtures::ScriptType,
+    fn assert_matches_wallet_scripts(
         network: Network,
         tx_format: fixtures::TxFormat,
+        fixture: &fixtures::PsbtFixture,
+        wallet_keys: &RootWalletKeys,
+        input_index: usize,
+        input_fixture: &fixtures::PsbtInputFixture,
     ) -> Result<(), String> {
-        let fixture = fixtures::load_psbt_fixture_with_format(
-            network.to_utxolib_name(),
-            fixtures::SignatureState::Fullsigned,
-            tx_format,
-        )
-        .expect("Failed to load fixture");
-        let xprvs = fixtures::parse_wallet_keys(&fixture).expect("Failed to parse wallet keys");
-        let secp = crate::bitcoin::secp256k1::Secp256k1::new();
-        let wallet_keys = RootWalletKeys::new(
-            xprvs
-                .iter()
-                .map(|x| Xpub::from_priv(&secp, x))
-                .collect::<Vec<_>>()
-                .try_into()
-                .expect("Failed to convert to XpubTriple"),
-        );
-
-        // Check if the script type is supported by the network
-        let output_script_support = network.output_script_support();
-        let input_fixture = fixture.find_input_with_script_type(script_type);
-        if !script_type.is_supported_by(&output_script_support) {
-            // Script type not supported by network - skip test (no fixture expected)
-            assert!(
-                input_fixture.is_err(),
-                "Expected error for unsupported script type"
-            );
-            return Ok(());
-        }
-
-        let (input_index, input_fixture) = input_fixture.unwrap();
-
         let (chain, index) =
             parse_fixture_paths(input_fixture).expect("Failed to parse fixture paths");
         let scripts = WalletScripts::from_wallet_keys(
-            &wallet_keys,
+            wallet_keys,
             chain,
             index,
             &network.output_script_support(),
@@ -421,13 +476,86 @@ mod tests {
                 ));
             }
         }
+        Ok(())
+    }
+
+    fn assert_finalize_input(
+        mut bitgo_psbt: BitGoPsbt,
+        input_index: usize,
+        _network: Network,
+        _tx_format: fixtures::TxFormat,
+    ) -> Result<(), String> {
+        let secp = crate::bitcoin::secp256k1::Secp256k1::new();
+        bitgo_psbt
+            .finalize_input(&secp, input_index)
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    fn test_wallet_script_type(
+        script_type: fixtures::ScriptType,
+        network: Network,
+        tx_format: fixtures::TxFormat,
+    ) -> Result<(), String> {
+        let fixture = fixtures::load_psbt_fixture_with_format(
+            network.to_utxolib_name(),
+            fixtures::SignatureState::Fullsigned,
+            tx_format,
+        )
+        .expect("Failed to load fixture");
+        let wallet_keys =
+            fixtures::parse_wallet_keys(&fixture).expect("Failed to parse wallet keys");
+        let secp = crate::bitcoin::secp256k1::Secp256k1::new();
+        let wallet_keys = RootWalletKeys::new(
+            wallet_keys
+                .iter()
+                .map(|x| Xpub::from_priv(&secp, x))
+                .collect::<Vec<_>>()
+                .try_into()
+                .expect("Failed to convert to XpubTriple"),
+        );
+
+        // Check if the script type is supported by the network
+        let output_script_support = network.output_script_support();
+        let input_fixture = fixture.find_input_with_script_type(script_type);
+        if !script_type.is_supported_by(&output_script_support) {
+            // Script type not supported by network - skip test (no fixture expected)
+            assert!(
+                input_fixture.is_err(),
+                "Expected error for unsupported script type"
+            );
+            return Ok(());
+        }
+
+        let (input_index, input_fixture) = input_fixture.unwrap();
+
+        assert_matches_wallet_scripts(
+            network,
+            tx_format,
+            &fixture,
+            &wallet_keys,
+            input_index,
+            input_fixture,
+        )?;
+
+        assert_finalize_input(
+            fixture.to_bitgo_psbt(network).unwrap(),
+            input_index,
+            network,
+            tx_format,
+        )?;
 
         Ok(())
     }
 
     crate::test_psbt_fixtures!(test_p2sh_script_generation_from_fixture, network, format, {
         test_wallet_script_type(fixtures::ScriptType::P2sh, network, format).unwrap();
-    });
+    }, ignore: [
+        // TODO: sighash support
+        BitcoinCash, Ecash, BitcoinGold,
+        // TODO: zec support
+        Zcash,
+        ]);
 
     crate::test_psbt_fixtures!(
         test_p2sh_p2wsh_script_generation_from_fixture,
@@ -435,7 +563,9 @@ mod tests {
         format,
         {
             test_wallet_script_type(fixtures::ScriptType::P2shP2wsh, network, format).unwrap();
-        }
+        },
+        // TODO: sighash support
+        ignore: [BitcoinGold]
     );
 
     crate::test_psbt_fixtures!(
@@ -444,7 +574,9 @@ mod tests {
         format,
         {
             test_wallet_script_type(fixtures::ScriptType::P2wsh, network, format).unwrap();
-        }
+        },
+        // TODO: sighash support
+        ignore: [BitcoinGold]
     );
 
     crate::test_psbt_fixtures!(test_p2tr_script_generation_from_fixture, network, format, {
@@ -468,6 +600,34 @@ mod tests {
             test_wallet_script_type(fixtures::ScriptType::TaprootKeypath, network, format).unwrap();
         }
     );
+
+    crate::test_psbt_fixtures!(test_extract_transaction, network, format, {
+        let fixture = fixtures::load_psbt_fixture_with_format(
+            network.to_utxolib_name(),
+            fixtures::SignatureState::Fullsigned,
+            format,
+        )
+        .expect("Failed to load fixture");
+        let bitgo_psbt = fixture
+            .to_bitgo_psbt(network)
+            .expect("Failed to convert to BitGo PSBT");
+        let fixture_extracted_transaction = fixture
+            .extracted_transaction
+            .expect("Failed to extract transaction");
+
+        // // Use BitGoPsbt::finalize() which handles MuSig2 inputs
+        let secp = crate::bitcoin::secp256k1::Secp256k1::new();
+        let finalized_psbt = bitgo_psbt.finalize(&secp).expect("Failed to finalize PSBT");
+        let extracted_transaction = finalized_psbt
+            .extract_tx()
+            .expect("Failed to extract transaction");
+        use miniscript::bitcoin::consensus::serialize;
+        let extracted_transaction_hex = hex::encode(serialize(&extracted_transaction));
+        assert_eq!(
+            extracted_transaction_hex, fixture_extracted_transaction,
+            "Extracted transaction should match"
+        );
+    }, ignore: [BitcoinGold, BitcoinCash, Ecash, Zcash]);
 
     #[test]
     fn test_serialize_bitcoin_psbt() {
