@@ -385,6 +385,20 @@ mod tests {
         output.script_pubkey.to_hex_string()
     }
 
+    // ensure we can put the first signature (user signature) on an unsigned PSBT
+    fn assert_half_sign(
+        network: Network,
+        tx_format: fixtures::TxFormat,
+        unsigned_bitgo_psbt: &BitGoPsbt,
+        wallet_keys: &RootWalletKeys,
+        input_index: usize,
+        input_fixture: &fixtures::PsbtInputFixture,
+        halfsigned_fixture: &fixtures::PsbtInputFixture,
+    ) -> Result<(), String> {
+        // todo!()
+        Ok(())
+    }
+
     fn assert_full_signed_matches_wallet_scripts(
         network: Network,
         tx_format: fixtures::TxFormat,
@@ -512,6 +526,19 @@ mod tests {
         }
 
         let psbt_input_stages = psbt_input_stages.unwrap();
+
+        assert_half_sign(
+            network,
+            tx_format,
+            &psbt_stages
+                .unsigned
+                .to_bitgo_psbt(network)
+                .expect("Failed to convert to BitGo PSBT"),
+            &psbt_input_stages.wallet_keys,
+            psbt_input_stages.input_index,
+            &psbt_input_stages.input_fixture_unsigned,
+            &psbt_input_stages.input_fixture_halfsigned,
+        )?;
 
         assert_full_signed_matches_wallet_scripts(
             network,
