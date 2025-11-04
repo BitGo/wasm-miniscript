@@ -82,6 +82,7 @@ impl Node {
         }
     }
 
+    #[cfg(test)]
     pub fn with_children(label: impl Into<String>, value: Primitive, children: Vec<Node>) -> Self {
         Self {
             label: label.into(),
@@ -94,15 +95,11 @@ impl Node {
         self.children.push(child);
     }
 
-    pub fn with_child(mut self, child: Node) -> Self {
-        self.children.push(child);
-        self
-    }
-
     pub fn extend(&mut self, nodes: impl IntoIterator<Item = Node>) {
         self.children.extend(nodes);
     }
 
+    #[cfg(test)]
     pub fn child_count(&self) -> usize {
         self.children.len()
     }
