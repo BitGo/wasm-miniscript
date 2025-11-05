@@ -70,6 +70,6 @@ jobs:
         run: npm --workspaces test
 
       - name: Release
-        run: npx lerna publish --yes --no-verify-access
+        run: npx lerna publish --yes --no-verify-access --no-push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
