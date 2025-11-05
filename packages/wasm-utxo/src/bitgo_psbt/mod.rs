@@ -614,9 +614,9 @@ mod tests {
 
         let psbt_input_stages = psbt_input_stages.unwrap();
 
-        if script_type != fixtures::ScriptType::TaprootKeypath
-            && script_type != fixtures::ScriptType::P2trMusig2
-            && script_type != fixtures::ScriptType::P2tr
+        if script_type != fixtures::ScriptType::P2trMusig2TaprootKeypath
+            && script_type != fixtures::ScriptType::P2trMusig2ScriptPath
+            && script_type != fixtures::ScriptType::P2trLegacyScriptPath
         {
             assert_half_sign(
                 &psbt_stages
@@ -651,7 +651,7 @@ mod tests {
         Ok(())
     }
 
-    crate::test_psbt_fixtures!(test_p2sh_script_generation_from_fixture, network, format, {
+    crate::test_psbt_fixtures!(test_p2sh_suite, network, format, {
         test_wallet_script_type(fixtures::ScriptType::P2sh, network, format).unwrap();
     }, ignore: [
         // TODO: sighash support
@@ -661,7 +661,7 @@ mod tests {
         ]);
 
     crate::test_psbt_fixtures!(
-        test_p2sh_p2wsh_script_generation_from_fixture,
+        test_p2sh_p2wsh_suite,
         network,
         format,
         {
@@ -672,7 +672,7 @@ mod tests {
     );
 
     crate::test_psbt_fixtures!(
-        test_p2wsh_script_generation_from_fixture,
+        test_p2wsh_suite,
         network,
         format,
         {
@@ -682,27 +682,24 @@ mod tests {
         ignore: [BitcoinGold]
     );
 
-    crate::test_psbt_fixtures!(test_p2tr_script_generation_from_fixture, network, format, {
-        test_wallet_script_type(fixtures::ScriptType::P2tr, network, format).unwrap();
+    crate::test_psbt_fixtures!(test_p2tr_legacy_script_path_suite, network, format, {
+        test_wallet_script_type(fixtures::ScriptType::P2trLegacyScriptPath, network, format)
+            .unwrap();
     });
 
-    crate::test_psbt_fixtures!(
-        test_p2tr_musig2_script_path_generation_from_fixture,
-        network,
-        format,
-        {
-            test_wallet_script_type(fixtures::ScriptType::P2trMusig2, network, format).unwrap();
-        }
-    );
+    crate::test_psbt_fixtures!(test_p2tr_musig2_script_path_suite, network, format, {
+        test_wallet_script_type(fixtures::ScriptType::P2trMusig2ScriptPath, network, format)
+            .unwrap();
+    });
 
-    crate::test_psbt_fixtures!(
-        test_p2tr_musig2_key_path_spend_script_generation_from_fixture,
-        network,
-        format,
-        {
-            test_wallet_script_type(fixtures::ScriptType::TaprootKeypath, network, format).unwrap();
-        }
-    );
+    crate::test_psbt_fixtures!(test_p2tr_musig2_key_path_suite, network, format, {
+        test_wallet_script_type(
+            fixtures::ScriptType::P2trMusig2TaprootKeypath,
+            network,
+            format,
+        )
+        .unwrap();
+    });
 
     crate::test_psbt_fixtures!(test_extract_transaction, network, format, {
         let fixture = fixtures::load_psbt_fixture_with_format(
