@@ -7,6 +7,7 @@
     "type": "git",
     "url": "git+https://github.com/BitGo/BitGoWASM"
   },
+  "license": "MIT",
   "files": [
     "dist/*/js/wasm/wasm_utxo.d.ts",
     "dist/*/js/wasm/wasm_utxo.js",
