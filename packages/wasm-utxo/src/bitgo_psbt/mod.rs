@@ -451,6 +451,7 @@ mod tests {
 
     // ensure we can put the first signature (user signature) on an unsigned PSBT
     fn assert_half_sign(
+        script_type: fixtures::ScriptType,
         unsigned_bitgo_psbt: &BitGoPsbt,
         halfsigned_bitgo_psbt: &BitGoPsbt,
         wallet_keys: &fixtures::XprvTriple,
@@ -474,14 +475,30 @@ mod tests {
                 return Err("Zcash signing not yet implemented".to_string());
             }
         };
-        let actual_partial_sigs = signed_input.partial_sigs.clone();
 
-        // Get expected partial signatures from halfsigned fixture
-        let expected_partial_sigs = halfsigned_bitgo_psbt.clone().into_psbt().inputs[input_index]
-            .partial_sigs
-            .clone();
+        match script_type {
+            fixtures::ScriptType::P2trLegacyScriptPath
+            | fixtures::ScriptType::P2trMusig2ScriptPath => {
+                assert_eq!(signed_input.tap_script_sigs.len(), 1);
+                // Get expected tap script sig from halfsigned fixture
+                let expected_tap_script_sig = halfsigned_bitgo_psbt.clone().into_psbt().inputs
+                    [input_index]
+                    .tap_script_sigs
+                    .clone();
+                assert_eq!(signed_input.tap_script_sigs, expected_tap_script_sig);
+            }
+            _ => {
+                let actual_partial_sigs = signed_input.partial_sigs.clone();
+                // Get expected partial signatures from halfsigned fixture
+                let expected_partial_sigs = halfsigned_bitgo_psbt.clone().into_psbt().inputs
+                    [input_index]
+                    .partial_sigs
+                    .clone();
 
-        assert_eq_partial_signatures(&actual_partial_sigs, &expected_partial_sigs)?;
+                assert_eq!(actual_partial_sigs.len(), 1);
+                assert_eq_partial_signatures(&actual_partial_sigs, &expected_partial_sigs)?;
+            }
+        }
 
         Ok(())
     }
@@ -614,11 +631,9 @@ mod tests {
 
         let psbt_input_stages = psbt_input_stages.unwrap();
 
-        if script_type != fixtures::ScriptType::P2trMusig2TaprootKeypath
-            && script_type != fixtures::ScriptType::P2trMusig2ScriptPath
-            && script_type != fixtures::ScriptType::P2trLegacyScriptPath
-        {
+        if script_type != fixtures::ScriptType::P2trMusig2TaprootKeypath {
             assert_half_sign(
+                script_type,
                 &psbt_stages
                     .unsigned
                     .to_bitgo_psbt(network)
