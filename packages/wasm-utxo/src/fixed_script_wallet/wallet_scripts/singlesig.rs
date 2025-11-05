@@ -56,7 +56,7 @@ mod tests {
 
         // Get the expected values from the fixture
         let expected_redeem_script = &p2shp2pk_input.redeem_script;
-        let expected_pubkey = p2shp2pk_input
+        p2shp2pk_input
             .partial_sig
             .first()
             .map(|sig| &sig.pubkey)
