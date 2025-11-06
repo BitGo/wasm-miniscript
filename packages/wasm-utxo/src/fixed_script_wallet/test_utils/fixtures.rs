@@ -16,7 +16,7 @@
 //!     .expect("Failed to decode PSBT");
 //!
 //! // Parse wallet keys (xprv)
-//! let xprvs = parse_wallet_keys(&fixture)
+//! let xprvs = fixture.get_wallet_xprvs()
 //!     .expect("Failed to parse wallet keys");
 //!
 //! // Access fixture data
@@ -38,9 +38,49 @@
 //! }
 //! ```
 
+use std::str::FromStr;
+
+use crate::{bitcoin::bip32::Xpriv, fixed_script_wallet::RootWalletKeys};
+use miniscript::bitcoin::bip32::Xpub;
 use serde::{Deserialize, Serialize};
 
 use crate::Network;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct XprvTriple([Xpriv; 3]);
+
+impl XprvTriple {
+    pub fn new(xprvs: [Xpriv; 3]) -> Self {
+        Self(xprvs)
+    }
+
+    pub fn from_strings(strings: Vec<String>) -> Result<Self, Box<dyn std::error::Error>> {
+        let xprvs = strings
+            .iter()
+            .map(|s| Xpriv::from_str(s).map_err(|e| Box::new(e) as Box<dyn std::error::Error>))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self::new(
+            xprvs.try_into().expect("Expected exactly 3 xprvs"),
+        ))
+    }
+
+    pub fn user_key(&self) -> &Xpriv {
+        &self.0[0]
+    }
+
+    pub fn backup_key(&self) -> &Xpriv {
+        &self.0[1]
+    }
+
+    pub fn bitgo_key(&self) -> &Xpriv {
+        &self.0[2]
+    }
+
+    pub fn to_root_wallet_keys(&self) -> RootWalletKeys {
+        let secp = crate::bitcoin::secp256k1::Secp256k1::new();
+        RootWalletKeys::new(self.0.map(|x| Xpub::from_priv(&secp, &x)))
+    }
+}
 
 // Basic helper types (no dependencies on other types in this file)
 
@@ -357,6 +397,22 @@ pub enum PsbtInputFixture {
     P2shP2pk(P2shP2pkInput),
 }
 
+impl PsbtInputFixture {
+    /// Get partial signatures from PSBT input fixtures that support them.
+    /// Returns None for input types that don't use ECDSA partial signatures (e.g., Taproot).
+    pub fn partial_sigs(&self) -> Option<&Vec<PartialSig>> {
+        match self {
+            PsbtInputFixture::P2sh(fixture) => Some(&fixture.partial_sig),
+            PsbtInputFixture::P2shP2wsh(fixture) => Some(&fixture.partial_sig),
+            PsbtInputFixture::P2wsh(fixture) => Some(&fixture.partial_sig),
+            PsbtInputFixture::P2shP2pk(fixture) => Some(&fixture.partial_sig),
+            PsbtInputFixture::P2trLegacy(_)
+            | PsbtInputFixture::P2trMusig2ScriptPath(_)
+            | PsbtInputFixture::P2trMusig2KeyPath(_) => None,
+        }
+    }
+}
+
 // Finalized input type structs (depend on helper types above)
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -480,6 +536,100 @@ pub struct PsbtFixture {
     pub extracted_transaction: Option<String>,
 }
 
+// Test helper types for multi-stage PSBT testing
+
+pub struct PsbtStages {
+    pub network: Network,
+    pub tx_format: TxFormat,
+    pub wallet_keys: XprvTriple,
+    pub unsigned: PsbtFixture,
+    pub halfsigned: PsbtFixture,
+    pub fullsigned: PsbtFixture,
+}
+
+impl PsbtStages {
+    pub fn load(network: Network, tx_format: TxFormat) -> Result<Self, String> {
+        let unsigned = load_psbt_fixture_with_format(
+            network.to_utxolib_name(),
+            SignatureState::Unsigned,
+            tx_format,
+        )
+        .expect("Failed to load unsigned fixture");
+        let halfsigned = load_psbt_fixture_with_format(
+            network.to_utxolib_name(),
+            SignatureState::Halfsigned,
+            tx_format,
+        )
+        .expect("Failed to load halfsigned fixture");
+        let fullsigned = load_psbt_fixture_with_format(
+            network.to_utxolib_name(),
+            SignatureState::Fullsigned,
+            tx_format,
+        )
+        .expect("Failed to load fullsigned fixture");
+        let wallet_keys_unsigned = unsigned
+            .get_wallet_xprvs()
+            .expect("Failed to parse wallet keys");
+        let wallet_keys_halfsigned = halfsigned
+            .get_wallet_xprvs()
+            .expect("Failed to parse wallet keys");
+        let wallet_keys_fullsigned = fullsigned
+            .get_wallet_xprvs()
+            .expect("Failed to parse wallet keys");
+        assert_eq!(wallet_keys_unsigned, wallet_keys_halfsigned);
+        assert_eq!(wallet_keys_unsigned, wallet_keys_fullsigned);
+
+        Ok(Self {
+            network,
+            tx_format,
+            wallet_keys: wallet_keys_unsigned.clone(),
+            unsigned,
+            halfsigned,
+            fullsigned,
+        })
+    }
+}
+
+pub struct PsbtInputStages {
+    pub network: Network,
+    pub tx_format: TxFormat,
+    pub wallet_keys: XprvTriple,
+    pub wallet_script_type: ScriptType,
+    pub input_index: usize,
+    pub input_fixture_unsigned: PsbtInputFixture,
+    pub input_fixture_halfsigned: PsbtInputFixture,
+    pub input_fixture_fullsigned: PsbtInputFixture,
+}
+
+impl PsbtInputStages {
+    pub fn from_psbt_stages(
+        psbt_stages: &PsbtStages,
+        wallet_script_type: ScriptType,
+    ) -> Result<Self, String> {
+        let input_fixture_unsigned = psbt_stages
+            .unsigned
+            .find_input_with_script_type(wallet_script_type)?;
+        let input_fixture_halfsigned = psbt_stages
+            .halfsigned
+            .find_input_with_script_type(wallet_script_type)?;
+        let input_fixture_fullsigned = psbt_stages
+            .fullsigned
+            .find_input_with_script_type(wallet_script_type)?;
+        assert_eq!(input_fixture_unsigned.0, input_fixture_halfsigned.0);
+        assert_eq!(input_fixture_unsigned.0, input_fixture_fullsigned.0);
+        Ok(Self {
+            network: psbt_stages.network,
+            tx_format: psbt_stages.tx_format,
+            wallet_keys: psbt_stages.wallet_keys.clone(),
+            wallet_script_type,
+            input_index: input_fixture_unsigned.0,
+            input_fixture_unsigned: input_fixture_unsigned.1.clone(),
+            input_fixture_halfsigned: input_fixture_halfsigned.1.clone(),
+            input_fixture_fullsigned: input_fixture_fullsigned.1.clone(),
+        })
+    }
+}
+
 /// Helper function to find a unique input matching a predicate
 fn find_unique_input<'a, T, I, F>(
     iter: I,
@@ -512,6 +662,11 @@ impl PsbtFixture {
             network,
         )?;
         Ok(psbt)
+    }
+
+    /// Parse wallet keys from fixture (xprv strings)
+    pub fn get_wallet_xprvs(&self) -> Result<XprvTriple, Box<dyn std::error::Error>> {
+        XprvTriple::from_strings(self.wallet_keys.clone())
     }
 
     pub fn find_input_with_script_type(
@@ -705,19 +860,6 @@ pub fn decode_psbt_from_fixture(
     let psbt_bytes = base64::prelude::BASE64_STANDARD.decode(&fixture.psbt_base64)?;
     let psbt = crate::bitcoin::psbt::Psbt::deserialize(&psbt_bytes)?;
     Ok(psbt)
-}
-
-/// Parse wallet keys from fixture (xprv strings)
-pub fn parse_wallet_keys(
-    fixture: &PsbtFixture,
-) -> Result<Vec<crate::bitcoin::bip32::Xpriv>, Box<dyn std::error::Error>> {
-    use std::str::FromStr;
-
-    fixture
-        .wallet_keys
-        .iter()
-        .map(|key_str| crate::bitcoin::bip32::Xpriv::from_str(key_str).map_err(|e| e.into()))
-        .collect()
 }
 
 // Helper functions for validation
@@ -1001,9 +1143,12 @@ pub enum ScriptType {
     P2sh,
     P2shP2wsh,
     P2wsh,
-    P2tr,
-    P2trMusig2,
-    TaprootKeypath,
+    // Chain 30 and 31 - we only support script path spending for these
+    P2trLegacyScriptPath,
+    // Chain 40 and 41 - script path spend
+    P2trMusig2ScriptPath,
+    // Chain 40 and 41 - keypath spend
+    P2trMusig2TaprootKeypath,
 }
 
 impl ScriptType {
@@ -1013,9 +1158,9 @@ impl ScriptType {
             ScriptType::P2sh => "p2sh",
             ScriptType::P2shP2wsh => "p2shP2wsh",
             ScriptType::P2wsh => "p2wsh",
-            ScriptType::P2tr => "p2tr",
-            ScriptType::P2trMusig2 => "p2trMusig2",
-            ScriptType::TaprootKeypath => "taprootKeypath",
+            ScriptType::P2trLegacyScriptPath => "p2tr",
+            ScriptType::P2trMusig2ScriptPath => "p2trMusig2",
+            ScriptType::P2trMusig2TaprootKeypath => "taprootKeypath",
         }
     }
 
@@ -1026,13 +1171,16 @@ impl ScriptType {
             (ScriptType::P2sh, PsbtInputFixture::P2sh(_))
                 | (ScriptType::P2shP2wsh, PsbtInputFixture::P2shP2wsh(_))
                 | (ScriptType::P2wsh, PsbtInputFixture::P2wsh(_))
-                | (ScriptType::P2tr, PsbtInputFixture::P2trLegacy(_))
                 | (
-                    ScriptType::P2trMusig2,
+                    ScriptType::P2trLegacyScriptPath,
+                    PsbtInputFixture::P2trLegacy(_)
+                )
+                | (
+                    ScriptType::P2trMusig2ScriptPath,
                     PsbtInputFixture::P2trMusig2ScriptPath(_)
                 )
                 | (
-                    ScriptType::TaprootKeypath,
+                    ScriptType::P2trMusig2TaprootKeypath,
                     PsbtInputFixture::P2trMusig2KeyPath(_)
                 )
         )
@@ -1045,13 +1193,16 @@ impl ScriptType {
             (ScriptType::P2sh, PsbtFinalInputFixture::P2sh(_))
                 | (ScriptType::P2shP2wsh, PsbtFinalInputFixture::P2shP2wsh(_))
                 | (ScriptType::P2wsh, PsbtFinalInputFixture::P2wsh(_))
-                | (ScriptType::P2tr, PsbtFinalInputFixture::P2trLegacy(_))
                 | (
-                    ScriptType::P2trMusig2,
+                    ScriptType::P2trLegacyScriptPath,
+                    PsbtFinalInputFixture::P2trLegacy(_)
+                )
+                | (
+                    ScriptType::P2trMusig2ScriptPath,
                     PsbtFinalInputFixture::P2trMusig2ScriptPath(_)
                 )
                 | (
-                    ScriptType::TaprootKeypath,
+                    ScriptType::P2trMusig2TaprootKeypath,
                     PsbtFinalInputFixture::P2trMusig2KeyPath(_)
                 )
         )
@@ -1064,7 +1215,9 @@ impl ScriptType {
     pub fn is_taproot(&self) -> bool {
         matches!(
             self,
-            ScriptType::P2tr | ScriptType::P2trMusig2 | ScriptType::TaprootKeypath
+            ScriptType::P2trLegacyScriptPath
+                | ScriptType::P2trMusig2ScriptPath
+                | ScriptType::P2trMusig2TaprootKeypath
         )
     }
 
@@ -1282,10 +1435,6 @@ mod tests {
         let psbt = decode_psbt_from_fixture(&fixture).expect("Failed to decode PSBT");
         assert_eq!(psbt.inputs.len(), 7);
         assert_eq!(psbt.outputs.len(), 5);
-
-        // Parse wallet keys
-        let xprvs = parse_wallet_keys(&fixture).expect("Failed to parse wallet keys");
-        assert_eq!(xprvs.len(), 3);
     }
 
     #[test]
@@ -1382,7 +1531,7 @@ mod tests {
 
         // Test finding taproot key path finalized input
         let (index, input) = fixture
-            .find_finalized_input_with_script_type(ScriptType::TaprootKeypath)
+            .find_finalized_input_with_script_type(ScriptType::P2trMusig2TaprootKeypath)
             .expect("Failed to find taproot key path finalized input");
         assert_eq!(index, 5);
         assert!(matches!(input, PsbtFinalInputFixture::P2trMusig2KeyPath(_)));

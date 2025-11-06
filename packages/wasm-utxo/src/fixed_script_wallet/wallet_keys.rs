@@ -32,7 +32,13 @@ pub fn to_pub_triple(xpubs: &XpubTriple) -> PubTriple {
         .expect("could not convert vec to array")
 }
 
-#[derive(Debug)]
+pub fn derivation_path(prefix: &DerivationPath, chain: u32, index: u32) -> DerivationPath {
+    prefix
+        .child(ChildNumber::Normal { index: chain })
+        .child(ChildNumber::Normal { index })
+}
+
+#[derive(Debug, Clone)]
 pub struct RootWalletKeys {
     xpubs: XpubTriple,
     derivation_prefixes: [DerivationPath; 3],
@@ -68,10 +74,7 @@ impl RootWalletKeys {
         let paths: Vec<DerivationPath> = self
             .derivation_prefixes
             .iter()
-            .map(|p| {
-                p.child(ChildNumber::Normal { index: chain })
-                    .child(ChildNumber::Normal { index })
-            })
+            .map(|p| derivation_path(p, chain, index))
             .collect::<Vec<_>>();
 
         let ctx = Secp256k1::new();
