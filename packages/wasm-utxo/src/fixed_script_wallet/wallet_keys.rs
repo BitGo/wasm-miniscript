@@ -40,8 +40,8 @@ pub fn derivation_path(prefix: &DerivationPath, chain: u32, index: u32) -> Deriv
 
 #[derive(Debug, Clone)]
 pub struct RootWalletKeys {
-    xpubs: XpubTriple,
-    derivation_prefixes: [DerivationPath; 3],
+    pub xpubs: XpubTriple,
+    pub derivation_prefixes: [DerivationPath; 3],
 }
 
 impl RootWalletKeys {
@@ -53,6 +53,18 @@ impl RootWalletKeys {
             xpubs,
             derivation_prefixes,
         }
+    }
+
+    pub fn user_key(&self) -> &Xpub {
+        &self.xpubs[0]
+    }
+
+    pub fn backup_key(&self) -> &Xpub {
+        &self.xpubs[1]
+    }
+
+    pub fn bitgo_key(&self) -> &Xpub {
+        &self.xpubs[2]
     }
 
     pub fn new(xpubs: XpubTriple) -> Self {

@@ -5,12 +5,49 @@
 //! https://gist.github.com/sanket1729/4b525c6049f4d9e034d27368c49f28a6
 
 use crate::bitgo_psbt::propkv::{find_kv, is_musig2_key, BitGoKeyValue};
+use crate::fixed_script_wallet::bitgo_musig::key_agg_p2tr_musig2;
 
 use super::propkv::ProprietaryKeySubtype;
 use crate::bitcoin::{key::UntweakedPublicKey, CompressedPublicKey};
 use miniscript::bitcoin::hashes::{hex, Hash};
-use miniscript::bitcoin::{psbt::Input, secp256k1, Psbt};
+use miniscript::bitcoin::{
+    bip32::{KeySource, Xpriv, Xpub},
+    psbt::Input,
+    secp256k1, Psbt, TapLeafHash, XOnlyPublicKey,
+};
 use musig2::PubNonce;
+
+pub type TapKeyOrigins = std::collections::BTreeMap<XOnlyPublicKey, (Vec<TapLeafHash>, KeySource)>;
+
+pub fn derive_xpriv_for_input_tap(
+    xpriv: &Xpriv,
+    tap_key_origins: &TapKeyOrigins,
+) -> Result<Xpriv, String> {
+    let secp = secp256k1::Secp256k1::new();
+    for (_leaf_hashes, (fingerprint, path)) in tap_key_origins.values() {
+        if *fingerprint == xpriv.fingerprint(&secp) {
+            return xpriv
+                .derive_priv(&secp, path)
+                .map_err(|e| format!("Failed to derive xpriv: {}", e));
+        }
+    }
+    Err("No xpriv found with fingerprint".to_string())
+}
+
+pub fn derive_xpub_for_input_tap(
+    xpub: &Xpub,
+    tap_key_origins: &TapKeyOrigins,
+) -> Result<Xpub, String> {
+    let secp = secp256k1::Secp256k1::new();
+    for (_leaf_hashes, (fingerprint, path)) in tap_key_origins.values() {
+        if *fingerprint == xpub.fingerprint() {
+            return xpub
+                .derive_pub(&secp, path)
+                .map_err(|e| format!("Failed to derive xpub: {}", e));
+        }
+    }
+    Err("No xpub found with fingerprint".to_string())
+}
 
 /// Error types for MuSig2 parsing
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,6 +131,26 @@ pub struct Musig2Participants {
     pub tap_output_key: UntweakedPublicKey,
     pub tap_internal_key: UntweakedPublicKey,
     pub participant_pub_keys: [CompressedPublicKey; 2],
+}
+
+impl Musig2Participants {
+    pub fn aggregate_pub_key(&self) -> Result<CompressedPublicKey, Musig2Error> {
+        CompressedPublicKey::from_slice(
+            &key_agg_p2tr_musig2(&[self.participant_pub_keys[0], self.participant_pub_keys[1]])
+                .map_err(|e| {
+                    Musig2Error::SignatureAggregation(format!(
+                        "Failed to aggregate public key: {}",
+                        e
+                    ))
+                })?,
+        )
+        .map_err(|e| {
+            Musig2Error::SignatureAggregation(format!(
+                "Failed to convert to compressed public key: {}",
+                e
+            ))
+        })
+    }
 }
 
 /// MuSig2 public nonce data
@@ -420,11 +477,338 @@ pub struct Musig2Input {
     pub partial_sigs: Vec<Musig2PartialSig>,
 }
 
+/// Context for MuSig2 operations on a specific PSBT input
+///
+/// This struct bundles together a mutable reference to a PSBT, the input index,
+/// and the parsed MuSig2 data, providing a more ergonomic API that doesn't require
+/// passing `(psbt, input_index)` to every method.
+pub struct Musig2Context<'a> {
+    pub(super) psbt: &'a mut Psbt,
+    pub(super) input_index: usize,
+    pub(super) musig2_input: Musig2Input,
+}
+
+impl<'a> Musig2Context<'a> {
+    /// Create a new Musig2Context for a specific PSBT input
+    pub fn new(psbt: &'a mut Psbt, input_index: usize) -> Result<Self, Musig2Error> {
+        let musig2_input = Musig2Input::from_input(&psbt.inputs[input_index])?;
+        Ok(Self {
+            psbt,
+            input_index,
+            musig2_input,
+        })
+    }
+
+    /// Get a reference to the parsed Musig2Input
+    pub fn musig2_input(&self) -> &Musig2Input {
+        &self.musig2_input
+    }
+
+    /// Finalize a MuSig2 PSBT input by aggregating signatures and delegating to miniscript
+    ///
+    /// This method:
+    /// 1. Parses MuSig2 proprietary data from the input
+    /// 2. Aggregates partial signatures into a single Schnorr signature
+    /// 3. Places the signature in the standard `tap_key_sig` field (BIP 371)
+    /// 4. Clears MuSig2 proprietary fields
+    /// 5. Delegates to miniscript's standard finalization to create the witness
+    ///
+    /// After aggregation, the MuSig2 signature is indistinguishable from a single-key
+    /// taproot signature, allowing us to reuse all standard finalization code.
+    pub fn finalize_input<C: secp256k1::Verification>(
+        &mut self,
+        secp: &secp256k1::Secp256k1<C>,
+    ) -> Result<(), Musig2Error> {
+        use crate::bitcoin::sighash::SighashCache;
+        use miniscript::psbt::PsbtExt;
+
+        // Step 1: Collect all prevouts for sighash computation
+        let prevouts = collect_prevouts(self.psbt)?;
+
+        // Get tap merkle root from input
+        use crate::bitcoin::taproot::TapNodeHash;
+        let tap_merkle_root = self.psbt.inputs[self.input_index]
+            .tap_merkle_root
+            .unwrap_or_else(|| TapNodeHash::from_byte_array([0u8; 32]));
+
+        // Step 2: Aggregate signatures
+        let mut sighash_cache = SighashCache::new(&self.psbt.unsigned_tx);
+        let taproot_sig = self.musig2_input.aggregate_signature(
+            &mut sighash_cache,
+            &prevouts,
+            self.input_index,
+            &tap_merkle_root,
+        )?;
+
+        // Step 3: Set tap_key_sig
+        self.psbt.inputs[self.input_index].tap_key_sig = Some(taproot_sig);
+
+        // Step 4: Clear MuSig2 proprietary fields (they're no longer needed)
+        self.psbt.inputs[self.input_index]
+            .proprietary
+            .retain(|key, _| !is_musig2_key(key));
+
+        // Step 5: Use standard miniscript finalization for the rest!
+        self.psbt
+            .finalize_inp_mut(secp, self.input_index)
+            .map_err(|e| {
+                Musig2Error::SignatureAggregation(format!("Finalization failed: {}", e))
+            })?;
+
+        Ok(())
+    }
+
+    /// Set a public nonce in the PSBT proprietary fields
+    ///
+    /// # Arguments
+    /// * `participant_pub_key` - The public key of the participant providing the nonce
+    /// * `tap_output_key` - The taproot output key (x-only tweaked aggregated key)
+    /// * `pub_nonce` - The public nonce to set
+    pub fn set_nonce(
+        &mut self,
+        participant_pub_key: CompressedPublicKey,
+        tap_output_key: crate::bitcoin::key::UntweakedPublicKey,
+        pub_nonce: PubNonce,
+    ) -> Result<(), Musig2Error> {
+        let musig2_nonce = Musig2PubNonce {
+            participant_pub_key,
+            tap_output_key,
+            pub_nonce,
+        };
+
+        let (key, val) = musig2_nonce.to_key_value().to_key_value();
+        self.psbt.inputs[self.input_index]
+            .proprietary
+            .insert(key, val);
+        Ok(())
+    }
+
+    /// Set a partial signature in the PSBT proprietary fields
+    ///
+    /// # Arguments
+    /// * `participant_pub_key` - The public key of the participant providing the signature
+    /// * `tap_output_key` - The taproot output key (x-only tweaked aggregated key)
+    /// * `partial_sig` - The partial signature to set
+    pub fn set_partial_signature(
+        &mut self,
+        participant_pub_key: CompressedPublicKey,
+        tap_output_key: crate::bitcoin::key::UntweakedPublicKey,
+        partial_sig: musig2::PartialSignature,
+    ) -> Result<(), Musig2Error> {
+        let musig2_partial_sig = Musig2PartialSig {
+            participant_pub_key,
+            tap_output_key,
+            partial_sig: partial_sig.serialize().to_vec(),
+        };
+
+        let (key, val) = musig2_partial_sig.to_key_value().to_key_value();
+        self.psbt.inputs[self.input_index]
+            .proprietary
+            .insert(key, val);
+        Ok(())
+    }
+
+    /// Generate and set a user nonce for a MuSig2 input using State-Machine API (FirstRound)
+    ///
+    /// This method uses the State-Machine API from the musig2 crate, which encapsulates
+    /// the SecNonce internally to prevent accidental reuse. This is the recommended
+    /// production API.
+    ///
+    /// This method:
+    /// 1. Derives the signer's key for this input from tap_key_origins
+    /// 2. Determines the signer's index in the participant list
+    /// 3. Creates a MuSig2 key aggregation context with taproot tweak
+    /// 4. Computes the taproot sighash for additional entropy
+    /// 5. Creates a FirstRound with the session_id as entropy
+    /// 6. Extracts and sets the public nonce in the PSBT proprietary fields
+    /// 7. Returns FirstRound (keep for signing) and PubNonce (send to counterparty)
+    ///
+    /// # Arguments
+    /// * `xpriv` - The signer's extended private key
+    /// * `session_id` - 32-byte session ID (use rand::thread_rng().gen() in production)
+    ///
+    /// # Returns
+    /// A tuple of (FirstRound, PubNonce) - keep FirstRound secret for signing later,
+    /// send PubNonce to the counterparty
+    pub fn generate_nonce_first_round(
+        &mut self,
+        xpriv: &Xpriv,
+        session_id: [u8; 32],
+    ) -> Result<(musig2::FirstRound, musig2::PubNonce), Musig2Error> {
+        use crate::bitcoin::bip32::Xpub;
+        use crate::bitcoin::sighash::{Prevouts, SighashCache, TapSighashType};
+        use crate::bitcoin::taproot::TapNodeHash;
+        use musig2::{KeyAggContext, SecNonceSpices};
+
+        // Derive the signer's key for this input
+        let tap_key_origins = &self.psbt.inputs[self.input_index].tap_key_origins;
+        let derived_xpriv = derive_xpriv_for_input_tap(xpriv, tap_key_origins).map_err(|e| {
+            Musig2Error::SignatureAggregation(format!("Failed to derive xpriv: {}", e))
+        })?;
+        let secp = secp256k1::Secp256k1::new();
+        let derived_xpub = Xpub::from_priv(&secp, &derived_xpriv);
+        let signer_pub_key = derived_xpub.to_pub();
+
+        // Determine signer index
+        let signer_index = self.musig2_input.get_signer_index(&signer_pub_key)?;
+
+        // Get tap merkle root
+        let tap_merkle_root = self.psbt.inputs[self.input_index]
+            .tap_merkle_root
+            .unwrap_or_else(|| TapNodeHash::from_byte_array([0u8; 32]));
+
+        // Create key aggregation context with taproot tweak
+        let participant_keys = self.musig2_input.get_participant_pubkeys()?;
+        let key_agg_ctx = KeyAggContext::new(participant_keys).map_err(|e| {
+            Musig2Error::SignatureAggregation(format!("Failed to create key agg context: {}", e))
+        })?;
+
+        let tap_tree_root_bytes = tap_merkle_root.to_byte_array();
+        let key_agg_ctx = key_agg_ctx
+            .with_taproot_tweak(&tap_tree_root_bytes)
+            .map_err(|e| {
+                Musig2Error::SignatureAggregation(format!("Failed to apply taproot tweak: {}", e))
+            })?;
+
+        // Compute sighash for SecNonceSpices
+        let prevouts = collect_prevouts(self.psbt)?;
+        let mut sighash_cache = SighashCache::new(&self.psbt.unsigned_tx);
+        let sighash = sighash_cache
+            .taproot_key_spend_signature_hash(
+                self.input_index,
+                &Prevouts::All(&prevouts),
+                TapSighashType::Default,
+            )
+            .map_err(|e| {
+                Musig2Error::SignatureAggregation(format!("Failed to compute sighash: {}", e))
+            })?;
+
+        // Convert secret key to scalar
+        let secret_scalar =
+            musig2::secp::Scalar::try_from(&derived_xpriv.private_key.secret_bytes()[..]).map_err(
+                |e| Musig2Error::SignatureAggregation(format!("Failed to parse secret key: {}", e)),
+            )?;
+
+        // Create SecNonceSpices with message for additional entropy
+        let message = sighash.to_byte_array();
+        let spices = SecNonceSpices::new()
+            .with_seckey(secret_scalar)
+            .with_message(&message);
+
+        // Create FirstRound with session_id as the primary entropy source
+        let first_round = musig2::FirstRound::new(key_agg_ctx, session_id, signer_index, spices)
+            .map_err(|e| {
+                Musig2Error::SignatureAggregation(format!("Failed to create FirstRound: {}", e))
+            })?;
+
+        // Extract public nonce
+        let pub_nonce = first_round.our_public_nonce();
+
+        // Set the public nonce in the PSBT
+        let tap_output_key = self.musig2_input.participants.tap_output_key;
+        self.set_nonce(signer_pub_key, tap_output_key, pub_nonce.clone())?;
+
+        // Return FirstRound (caller keeps for signing) and PubNonce (send to counterparty)
+        Ok((first_round, pub_nonce))
+    }
+
+    /// Sign a MuSig2 input using State-Machine API (SecondRound)
+    ///
+    /// This method uses the State-Machine API from the musig2 crate. The FirstRound
+    /// from nonce generation encapsulates the secret nonce, preventing reuse.
+    ///
+    /// This method:
+    /// 1. Derives the signer's key to identify which signature to set
+    /// 2. Receives nonces from all other participants into FirstRound
+    /// 3. Finalizes FirstRound with seckey and message → SecondRound
+    /// 4. Extracts the partial signature from SecondRound
+    /// 5. Sets the partial signature in the PSBT proprietary fields
+    ///
+    /// # Arguments
+    /// * `first_round` - The FirstRound from generate_nonce_first_round()
+    /// * `xpriv` - The signer's extended private key
+    ///
+    /// # Returns
+    /// Ok(()) if the signature was successfully created and set
+    pub fn sign_with_first_round(
+        &mut self,
+        mut first_round: musig2::FirstRound,
+        xpriv: &Xpriv,
+    ) -> Result<(), Musig2Error> {
+        use crate::bitcoin::bip32::Xpub;
+        use crate::bitcoin::sighash::{Prevouts, SighashCache, TapSighashType};
+
+        // Derive the signer's key for this input
+        let tap_key_origins = &self.psbt.inputs[self.input_index].tap_key_origins;
+        let derived_xpriv = derive_xpriv_for_input_tap(xpriv, tap_key_origins).map_err(|e| {
+            Musig2Error::SignatureAggregation(format!("Failed to derive xpriv: {}", e))
+        })?;
+        let secp = secp256k1::Secp256k1::new();
+        let derived_xpub = Xpub::from_priv(&secp, &derived_xpriv);
+        let signer_pub_key = derived_xpub.to_pub();
+
+        // Get signer index to know which nonces to receive
+        let signer_index = self.musig2_input.get_signer_index(&signer_pub_key)?;
+
+        // Receive nonces from all other participants
+        // We need to map each nonce to its correct signer index
+        for nonce_data in &self.musig2_input.nonces {
+            let nonce_signer_index = self
+                .musig2_input
+                .get_signer_index(&nonce_data.participant_pub_key)?;
+
+            // Only receive nonces from other signers (not our own)
+            if nonce_signer_index != signer_index {
+                first_round
+                    .receive_nonce(nonce_signer_index, nonce_data.pub_nonce.clone())
+                    .map_err(|e| {
+                        Musig2Error::SignatureAggregation(format!(
+                            "Failed to receive nonce from signer {}: {}",
+                            nonce_signer_index, e
+                        ))
+                    })?;
+            }
+        }
+
+        // Compute sighash message (needed for finalize)
+        let prevouts = collect_prevouts(self.psbt)?;
+        let mut sighash_cache = SighashCache::new(&self.psbt.unsigned_tx);
+        let sighash = sighash_cache
+            .taproot_key_spend_signature_hash(
+                self.input_index,
+                &Prevouts::All(&prevouts),
+                TapSighashType::Default,
+            )
+            .map_err(|e| {
+                Musig2Error::SignatureAggregation(format!("Failed to compute sighash: {}", e))
+            })?;
+        let message = sighash.to_byte_array();
+
+        // Convert secret key to scalar
+        let secret_scalar =
+            musig2::secp::Scalar::try_from(&derived_xpriv.private_key.secret_bytes()[..]).map_err(
+                |e| Musig2Error::SignatureAggregation(format!("Failed to parse secret key: {}", e)),
+            )?;
+
+        // Finalize FirstRound with seckey and message → SecondRound (signature created during finalization)
+        let second_round = first_round.finalize(secret_scalar, message).map_err(|e| {
+            Musig2Error::SignatureAggregation(format!("Failed to finalize FirstRound: {}", e))
+        })?;
+
+        // Extract our partial signature from SecondRound
+        let partial_sig: musig2::PartialSignature = second_round.our_signature();
+
+        // Set the partial signature in the PSBT
+        let tap_output_key = self.musig2_input.participants.tap_output_key;
+        self.set_partial_signature(signer_pub_key, tap_output_key, partial_sig)
+    }
+}
+
 /// Collect all prevouts (funding outputs) from PSBT inputs
 ///
 /// This helper extracts the TxOut for each input from either witness_utxo or non_witness_utxo.
 /// Required for computing sighashes in taproot transactions.
-fn collect_prevouts(psbt: &Psbt) -> Result<Vec<crate::bitcoin::TxOut>, Musig2Error> {
+pub(crate) fn collect_prevouts(psbt: &Psbt) -> Result<Vec<crate::bitcoin::TxOut>, Musig2Error> {
     let tx = &psbt.unsigned_tx;
     psbt.inputs
         .iter()
@@ -475,62 +859,6 @@ impl Musig2Input {
         })
     }
 
-    /// Finalize a MuSig2 PSBT input by aggregating signatures and delegating to miniscript
-    ///
-    /// This method:
-    /// 1. Parses MuSig2 proprietary data from the input
-    /// 2. Aggregates partial signatures into a single Schnorr signature
-    /// 3. Places the signature in the standard `tap_key_sig` field (BIP 371)
-    /// 4. Clears MuSig2 proprietary fields
-    /// 5. Delegates to miniscript's standard finalization to create the witness
-    ///
-    /// After aggregation, the MuSig2 signature is indistinguishable from a single-key
-    /// taproot signature, allowing us to reuse all standard finalization code.
-    pub fn finalize_input<C: secp256k1::Verification>(
-        psbt: &mut Psbt,
-        secp: &secp256k1::Secp256k1<C>,
-        input_index: usize,
-    ) -> Result<(), Musig2Error> {
-        use crate::bitcoin::sighash::SighashCache;
-        use miniscript::psbt::PsbtExt;
-
-        // Step 1: Parse Musig2Input from PSBT input
-        let musig2_input = Self::from_input(&psbt.inputs[input_index])?;
-
-        // Step 2: Collect all prevouts for sighash computation
-        let prevouts = collect_prevouts(psbt)?;
-
-        // Get tap merkle root from input
-        use crate::bitcoin::taproot::TapNodeHash;
-        let tap_merkle_root = psbt.inputs[input_index]
-            .tap_merkle_root
-            .unwrap_or_else(|| TapNodeHash::from_byte_array([0u8; 32]));
-
-        // Step 3: Aggregate signatures
-        let mut sighash_cache = SighashCache::new(&psbt.unsigned_tx);
-        let taproot_sig = musig2_input.aggregate_signature(
-            &mut sighash_cache,
-            &prevouts,
-            input_index,
-            &tap_merkle_root,
-        )?;
-
-        // Step 4: Set tap_key_sig
-        psbt.inputs[input_index].tap_key_sig = Some(taproot_sig);
-
-        // Step 5: Clear MuSig2 proprietary fields (they're no longer needed)
-        psbt.inputs[input_index]
-            .proprietary
-            .retain(|key, _| !is_musig2_key(key));
-
-        // Step 6: Use standard miniscript finalization for the rest!
-        psbt.finalize_inp_mut(secp, input_index).map_err(|e| {
-            Musig2Error::SignatureAggregation(format!("Finalization failed: {}", e))
-        })?;
-
-        Ok(())
-    }
-
     /// Get public nonces
     pub fn get_pub_nonces(&self) -> Vec<PubNonce> {
         self.nonces.iter().map(|n| n.pub_nonce.clone()).collect()
@@ -563,6 +891,31 @@ impl Musig2Input {
             .iter()
             .map(|sig| sig.normalized_signature())
             .collect()
+    }
+
+    /// Get the signer index (0 or 1) for a given public key
+    ///
+    /// This is needed for the State-Machine API (FirstRound::new) which requires
+    /// knowing which position in the participant list corresponds to the signer.
+    ///
+    /// # Arguments
+    /// * `signer_pub_key` - The public key to find in the participant list
+    ///
+    /// # Returns
+    /// The index (0 or 1) of the signer, or an error if the key is not found
+    pub fn get_signer_index(
+        &self,
+        signer_pub_key: &CompressedPublicKey,
+    ) -> Result<usize, Musig2Error> {
+        for (index, participant_key) in self.participants.participant_pub_keys.iter().enumerate() {
+            if participant_key == signer_pub_key {
+                return Ok(index);
+            }
+        }
+        Err(Musig2Error::SignatureAggregation(format!(
+            "Signer public key {:?} not found in participants",
+            signer_pub_key
+        )))
     }
 
     /// Aggregate MuSig2 partial signatures into a final Schnorr signature
@@ -662,6 +1015,143 @@ impl Musig2Input {
         crate::bitcoin::taproot::Signature::from_slice(&sig_bytes)
             .map_err(|e| Musig2Error::SignatureAggregation(format!("Invalid signature: {}", e)))
     }
+}
+
+/// Set nonces and sign a MuSig2 keypath input with the user's key using BOTH APIs
+///
+/// This is a comprehensive test function that validates both the Functional API (against
+/// fixtures) and the State-Machine API (for internal consistency). It ensures both
+/// implementations work correctly.
+///
+/// # Arguments
+/// * `xpriv_triple` - Triple of extended private keys (user, backup, BitGo)
+/// * `unsigned_bitgo_psbt` - Unsigned PSBT (will be mutated to add nonces and signature)
+/// * `halfsigned_bitgo_psbt` - Expected halfsigned PSBT for Functional API verification
+/// * `input_index` - Index of the MuSig2 input
+#[cfg(test)]
+pub fn assert_set_nonce_and_sign_musig2_keypath(
+    xpriv_triple: &crate::fixed_script_wallet::test_utils::fixtures::XprvTriple,
+    unsigned_bitgo_psbt: &mut crate::bitgo_psbt::BitGoPsbt,
+    halfsigned_bitgo_psbt: &crate::bitgo_psbt::BitGoPsbt,
+    input_index: usize,
+) -> Result<(), String> {
+    // Test 1: Functional API (utxolib-compatible, fixture-validated)
+    let mut functional_psbt = unsigned_bitgo_psbt.clone();
+    super::p2tr_musig2_input_utxolib::assert_set_nonce_and_sign_musig2_keypath_utxolib(
+        xpriv_triple,
+        &mut functional_psbt,
+        halfsigned_bitgo_psbt,
+        input_index,
+    )?;
+
+    // Test 2: State-Machine API (internal consistency validation, no fixture comparison)
+    let mut state_machine_psbt = unsigned_bitgo_psbt.clone();
+    assert_set_nonce_and_sign_musig2_keypath_state_machine(
+        xpriv_triple,
+        &mut state_machine_psbt,
+        input_index,
+    )?;
+
+    // Update the original PSBT with the functional API result for consistency
+    *unsigned_bitgo_psbt = functional_psbt;
+
+    Ok(())
+}
+
+/// Test State-Machine API: set nonces and sign a MuSig2 keypath input using FirstRound/SecondRound
+///
+/// This test helper validates that the State-Machine API works correctly by:
+/// 1. Generating nonces for both participants using generate_nonce_first_round()
+/// 2. Signing using sign_with_first_round()
+/// 3. Finalizing and verifying the aggregated signature is valid
+///
+/// Unlike the Functional API test which validates against fixtures, this test
+/// validates internal consistency (signatures are valid but not deterministic).
+///
+/// # Arguments
+/// * `xpriv_triple` - Triple of extended private keys (user, backup, BitGo)
+/// * `unsigned_bitgo_psbt` - Unsigned PSBT (will be mutated to add nonces and signature)
+/// * `input_index` - Index of the MuSig2 input
+#[cfg(test)]
+pub fn assert_set_nonce_and_sign_musig2_keypath_state_machine(
+    xpriv_triple: &crate::fixed_script_wallet::test_utils::fixtures::XprvTriple,
+    unsigned_bitgo_psbt: &mut crate::bitgo_psbt::BitGoPsbt,
+    input_index: usize,
+) -> Result<(), String> {
+    // Verify this is actually a MuSig2 input
+    let is_musig2 = Musig2Input::is_musig2_input(&unsigned_bitgo_psbt.psbt().inputs[input_index]);
+
+    if !is_musig2 {
+        return Err(format!(
+            "Expected MuSig2 input at index {} but found non-MuSig2 taproot input",
+            input_index
+        ));
+    }
+
+    // Generate random session IDs for production-like behavior
+    let user_session_id: [u8; 32] = [1u8; 32]; // Use fixed for reproducibility in tests
+    let bitgo_session_id: [u8; 32] = [2u8; 32];
+
+    // Step 1: Generate user nonce using State-Machine API
+    let mut user_ctx = Musig2Context::new(unsigned_bitgo_psbt.psbt_mut(), input_index)
+        .map_err(|e| e.to_string())?;
+    let (user_first_round, _user_pub_nonce) = user_ctx
+        .generate_nonce_first_round(xpriv_triple.user_key(), user_session_id)
+        .map_err(|e| e.to_string())?;
+
+    // Step 2: Generate BitGo nonce using State-Machine API
+    let mut bitgo_ctx = Musig2Context::new(unsigned_bitgo_psbt.psbt_mut(), input_index)
+        .map_err(|e| e.to_string())?;
+    let (bitgo_first_round, _bitgo_pub_nonce) = bitgo_ctx
+        .generate_nonce_first_round(xpriv_triple.bitgo_key(), bitgo_session_id)
+        .map_err(|e| e.to_string())?;
+
+    // Step 3: Verify both nonces are set
+    let musig2_input = Musig2Input::from_input(&unsigned_bitgo_psbt.psbt().inputs[input_index])
+        .map_err(|e| e.to_string())?;
+    if musig2_input.nonces.len() != 2 {
+        return Err(format!(
+            "Expected 2 nonces after generation, got {}",
+            musig2_input.nonces.len()
+        ));
+    }
+
+    // Step 4: Sign with user key using State-Machine API
+    let mut user_sign_ctx = Musig2Context::new(unsigned_bitgo_psbt.psbt_mut(), input_index)
+        .map_err(|e| e.to_string())?;
+    user_sign_ctx
+        .sign_with_first_round(user_first_round, xpriv_triple.user_key())
+        .map_err(|e| e.to_string())?;
+
+    // Step 5: Sign with BitGo key using State-Machine API
+    let mut bitgo_sign_ctx = Musig2Context::new(unsigned_bitgo_psbt.psbt_mut(), input_index)
+        .map_err(|e| e.to_string())?;
+    bitgo_sign_ctx
+        .sign_with_first_round(bitgo_first_round, xpriv_triple.bitgo_key())
+        .map_err(|e| e.to_string())?;
+
+    // Step 6: Verify both partial signatures are set
+    let musig2_input = Musig2Input::from_input(&unsigned_bitgo_psbt.psbt().inputs[input_index])
+        .map_err(|e| e.to_string())?;
+    if musig2_input.partial_sigs.len() != 2 {
+        return Err(format!(
+            "Expected 2 partial signatures after signing, got {}",
+            musig2_input.partial_sigs.len()
+        ));
+    }
+
+    // Step 7: Finalize the input to verify the signature aggregates correctly
+    let secp = miniscript::bitcoin::secp256k1::Secp256k1::new();
+    unsigned_bitgo_psbt
+        .finalize_input(&secp, input_index)
+        .map_err(|e| format!("Finalization failed: {}", e))?;
+
+    // Step 8: Extract transaction to verify signature is valid
+    let psbt = unsigned_bitgo_psbt.clone().into_psbt();
+    psbt.extract_tx()
+        .map_err(|e| format!("Failed to extract transaction: {}", e))?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -831,5 +1321,88 @@ mod tests {
     #[test]
     fn test_musig2_keypath_matches_fixture_fullsigned() {
         test_musig2_keypath_matches_fixture(SignatureState::Fullsigned);
+    }
+
+    #[test]
+    fn test_state_machine_api_produces_valid_signature() {
+        // Load fixtures using PsbtStages to get wallet keys
+        let psbt_stages = fixtures::PsbtStages::load(crate::Network::Bitcoin, TxFormat::Psbt)
+            .expect("Failed to load PSBT stages");
+
+        // Find MuSig2 keypath input
+        let (input_index, _input_fixture) = psbt_stages
+            .unsigned
+            .find_input_with_script_type(ScriptType::P2trMusig2TaprootKeypath)
+            .expect("Failed to find taprootKeyPathSpend input");
+
+        // Get wallet keys from stages
+        let xpriv_triple = &psbt_stages.wallet_keys;
+
+        // Convert to BitGoPsbt
+        let mut bitgo_psbt = psbt_stages
+            .unsigned
+            .to_bitgo_psbt(crate::Network::Bitcoin)
+            .expect("Failed to convert to BitGoPsbt");
+
+        // Test State-Machine API
+        assert_set_nonce_and_sign_musig2_keypath_state_machine(
+            xpriv_triple,
+            &mut bitgo_psbt,
+            input_index,
+        )
+        .expect("State-Machine API test failed");
+
+        println!("✓ State-Machine API produced valid signature");
+    }
+
+    #[test]
+    fn test_both_apis_produce_valid_signatures() {
+        // This test validates that both APIs can produce valid signatures on the same input
+
+        // Load fixtures using PsbtStages to get wallet keys
+        let psbt_stages = fixtures::PsbtStages::load(crate::Network::Bitcoin, TxFormat::Psbt)
+            .expect("Failed to load PSBT stages");
+
+        let (input_index, _) = psbt_stages
+            .unsigned
+            .find_input_with_script_type(ScriptType::P2trMusig2TaprootKeypath)
+            .expect("Failed to find MuSig2 keypath input");
+
+        let xpriv_triple = &psbt_stages.wallet_keys;
+
+        // Test 1: Functional API (deterministic, fixture-validated)
+        let mut functional_psbt = psbt_stages
+            .unsigned
+            .to_bitgo_psbt(crate::Network::Bitcoin)
+            .expect("Failed to convert to BitGoPsbt");
+
+        let halfsigned_psbt = psbt_stages
+            .halfsigned
+            .to_bitgo_psbt(crate::Network::Bitcoin)
+            .expect("Failed to convert halfsigned to BitGoPsbt");
+
+        // Use Functional API
+        assert_set_nonce_and_sign_musig2_keypath(
+            xpriv_triple,
+            &mut functional_psbt,
+            &halfsigned_psbt,
+            input_index,
+        )
+        .expect("Functional API test failed");
+
+        // Test 2: State-Machine API (non-deterministic, validity-checked)
+        let mut state_machine_psbt = psbt_stages
+            .unsigned
+            .to_bitgo_psbt(crate::Network::Bitcoin)
+            .expect("Failed to convert to BitGoPsbt");
+
+        assert_set_nonce_and_sign_musig2_keypath_state_machine(
+            xpriv_triple,
+            &mut state_machine_psbt,
+            input_index,
+        )
+        .expect("State-Machine API test failed");
+
+        println!("✓ Both Functional and State-Machine APIs produced valid signatures");
     }
 }

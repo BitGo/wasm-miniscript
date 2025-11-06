@@ -4,8 +4,8 @@ use bitcoin::hashes::Hash;
 use bitcoin::psbt::Psbt;
 use bitcoin::{Network, ScriptBuf, Transaction};
 use wasm_utxo::bitgo_psbt::{
-    BitGoKeyValue, Musig2PartialSig, Musig2Participants, Musig2PubNonce, ProprietaryKeySubtype,
-    BITGO,
+    p2tr_musig2_input::{Musig2PartialSig, Musig2Participants, Musig2PubNonce},
+    BitGoKeyValue, ProprietaryKeySubtype, BITGO,
 };
 
 pub use crate::node::{Node, Primitive};

@@ -40,7 +40,9 @@
 
 use std::str::FromStr;
 
-use crate::{bitcoin::bip32::Xpriv, fixed_script_wallet::RootWalletKeys};
+use crate::{
+    bitcoin::bip32::Xpriv, bitgo_psbt::p2tr_musig2_input, fixed_script_wallet::RootWalletKeys,
+};
 use miniscript::bitcoin::bip32::Xpub;
 use serde::{Deserialize, Serialize};
 
@@ -175,7 +177,7 @@ impl Musig2Participants {
     /// Validates that the parsed Musig2Participants matches this fixture
     pub fn assert_matches_parsed(
         &self,
-        parsed: &crate::bitgo_psbt::Musig2Participants,
+        parsed: &p2tr_musig2_input::Musig2Participants,
     ) -> Result<(), String> {
         // Compare tap_output_key
         let parsed_output_key_hex = hex::encode(parsed.tap_output_key.serialize());
@@ -227,7 +229,7 @@ impl Musig2Nonce {
     /// Validates that the parsed Musig2PubNonce matches this fixture
     pub fn assert_matches_parsed(
         &self,
-        parsed: &crate::bitgo_psbt::Musig2PubNonce,
+        parsed: &p2tr_musig2_input::Musig2PubNonce,
     ) -> Result<(), String> {
         // Compare participant pub key
         let parsed_participant_key_hex = hex::encode(parsed.participant_pub_key.to_bytes());
@@ -265,7 +267,7 @@ impl Musig2PartialSig {
     /// Validates that the parsed Musig2PartialSig matches this fixture
     pub fn assert_matches_parsed(
         &self,
-        parsed: &crate::bitgo_psbt::Musig2PartialSig,
+        parsed: &p2tr_musig2_input::Musig2PartialSig,
     ) -> Result<(), String> {
         // Compare participant pub key
         let parsed_participant_key_hex = hex::encode(parsed.participant_pub_key.to_bytes());
@@ -1067,7 +1069,7 @@ impl P2trMusig2KeyPathInput {
     /// Validates that the parsed Musig2 input data matches this fixture
     pub fn assert_matches_musig2_input(
         &self,
-        musig2_input: &crate::bitgo_psbt::Musig2Input,
+        musig2_input: &p2tr_musig2_input::Musig2Input,
     ) -> Result<(), String> {
         // Validate participants
         let fixture_participants = self
@@ -1143,11 +1145,8 @@ pub enum ScriptType {
     P2sh,
     P2shP2wsh,
     P2wsh,
-    // Chain 30 and 31 - we only support script path spending for these
     P2trLegacyScriptPath,
-    // Chain 40 and 41 - script path spend
     P2trMusig2ScriptPath,
-    // Chain 40 and 41 - keypath spend
     P2trMusig2TaprootKeypath,
 }
 

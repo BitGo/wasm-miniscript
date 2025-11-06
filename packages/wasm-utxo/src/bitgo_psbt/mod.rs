@@ -3,20 +3,18 @@
 //! This module provides PSBT deserialization that works across different
 //! bitcoin-like networks, including those with non-standard transaction formats.
 
-mod p2tr_musig2_input;
+pub mod p2tr_musig2_input;
+#[cfg(test)]
+mod p2tr_musig2_input_utxolib;
 mod propkv;
 mod sighash;
 mod zcash_psbt;
 
-pub use p2tr_musig2_input::{
-    parse_musig2_nonces, parse_musig2_partial_sigs, parse_musig2_participants, Musig2Error,
-    Musig2Input, Musig2PartialSig, Musig2Participants, Musig2PubNonce,
-};
+use crate::{bitgo_psbt::zcash_psbt::ZcashPsbt, networks::Network};
+
+use miniscript::bitcoin::{psbt::Psbt, secp256k1, CompressedPublicKey};
 pub use propkv::{BitGoKeyValue, ProprietaryKeySubtype, BITGO};
 pub use sighash::validate_sighash_type;
-
-use crate::{bitgo_psbt::zcash_psbt::ZcashPsbt, networks::Network};
-use miniscript::bitcoin::{psbt::Psbt, secp256k1};
 
 #[derive(Debug)]
 pub enum DeserializeError {
@@ -133,6 +131,13 @@ impl BitGoPsbt {
         }
     }
 
+    pub fn network(&self) -> Network {
+        match self {
+            BitGoPsbt::BitcoinLike(_, network) => *network,
+            BitGoPsbt::Zcash(_, network) => *network,
+        }
+    }
+
     /// Serialize the PSBT to bytes, using network-specific logic
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         match self {
@@ -148,6 +153,28 @@ impl BitGoPsbt {
         }
     }
 
+    /// Get a reference to the underlying PSBT
+    ///
+    /// This works for both BitcoinLike and Zcash PSBTs, returning a reference
+    /// to the inner Bitcoin-compatible PSBT structure.
+    pub fn psbt(&self) -> &Psbt {
+        match self {
+            BitGoPsbt::BitcoinLike(ref psbt, _network) => psbt,
+            BitGoPsbt::Zcash(ref zcash_psbt, _network) => &zcash_psbt.psbt,
+        }
+    }
+
+    /// Get a mutable reference to the underlying PSBT
+    ///
+    /// This works for both BitcoinLike and Zcash PSBTs, returning a reference
+    /// to the inner Bitcoin-compatible PSBT structure.
+    pub fn psbt_mut(&mut self) -> &mut Psbt {
+        match self {
+            BitGoPsbt::BitcoinLike(ref mut psbt, _network) => psbt,
+            BitGoPsbt::Zcash(ref mut zcash_psbt, _network) => &mut zcash_psbt.psbt,
+        }
+    }
+
     pub fn finalize_input<C: secp256k1::Verification>(
         &mut self,
         secp: &secp256k1::Secp256k1<C>,
@@ -158,9 +185,10 @@ impl BitGoPsbt {
         match self {
             BitGoPsbt::BitcoinLike(ref mut psbt, _network) => {
                 // Use custom bitgo p2trMusig2 input finalization for MuSig2 inputs
-                if Musig2Input::is_musig2_input(&psbt.inputs[input_index]) {
-                    Musig2Input::finalize_input(psbt, secp, input_index)
+                if p2tr_musig2_input::Musig2Input::is_musig2_input(&psbt.inputs[input_index]) {
+                    let mut ctx = p2tr_musig2_input::Musig2Context::new(psbt, input_index)
                         .map_err(|e| e.to_string())?;
+                    ctx.finalize_input(secp).map_err(|e| e.to_string())?;
                     return Ok(());
                 }
                 // other inputs can be finalized using the standard miniscript::psbt::finalize_input
@@ -188,10 +216,7 @@ impl BitGoPsbt {
         &mut self,
         secp: &secp256k1::Secp256k1<C>,
     ) -> Result<(), Vec<String>> {
-        let num_inputs = match self {
-            BitGoPsbt::BitcoinLike(psbt, _network) => psbt.inputs.len(),
-            BitGoPsbt::Zcash(zcash_psbt, _network) => zcash_psbt.psbt.inputs.len(),
-        };
+        let num_inputs = self.psbt().inputs.len();
 
         let mut errors = vec![];
         for index in 0..num_inputs {
@@ -228,6 +253,108 @@ impl BitGoPsbt {
                 errors.join("; ")
             )),
         }
+    }
+
+    /// Helper function to create a MuSig2 context for an input
+    ///
+    /// This validates that:
+    /// 1. The PSBT is BitcoinLike (not Zcash)
+    /// 2. The input index is valid
+    /// 3. The input is a MuSig2 input
+    ///
+    /// Returns a Musig2Context for the specified input
+    fn musig2_context<'a>(
+        &'a mut self,
+        input_index: usize,
+    ) -> Result<p2tr_musig2_input::Musig2Context<'a>, String> {
+        if self.network().mainnet() != Network::Bitcoin {
+            return Err("MuSig2 not supported for non-Bitcoin networks".to_string());
+        }
+
+        if matches!(self, BitGoPsbt::Zcash(_, _)) {
+            return Err("MuSig2 not supported for Zcash".to_string());
+        }
+
+        let psbt = self.psbt_mut();
+        if input_index >= psbt.inputs.len() {
+            return Err(format!("Input index {} out of bounds", input_index));
+        }
+
+        // Validate this is a MuSig2 input
+        if !p2tr_musig2_input::Musig2Input::is_musig2_input(&psbt.inputs[input_index]) {
+            return Err(format!("Input {} is not a MuSig2 input", input_index));
+        }
+
+        // Create and return the context
+        p2tr_musig2_input::Musig2Context::new(psbt, input_index).map_err(|e| e.to_string())
+    }
+
+    /// Set the counterparty's (BitGo's) nonce in the PSBT
+    ///
+    /// # Arguments
+    /// * `input_index` - The index of the MuSig2 input
+    /// * `participant_pub_key` - The counterparty's public key
+    /// * `pub_nonce` - The counterparty's public nonce
+    pub fn set_counterparty_nonce(
+        &mut self,
+        input_index: usize,
+        participant_pub_key: CompressedPublicKey,
+        pub_nonce: musig2::PubNonce,
+    ) -> Result<(), String> {
+        let mut ctx = self.musig2_context(input_index)?;
+        let tap_output_key = ctx.musig2_input().participants.tap_output_key;
+
+        // Set the nonce
+        ctx.set_nonce(participant_pub_key, tap_output_key, pub_nonce)
+            .map_err(|e| e.to_string())
+    }
+
+    /// Generate and set a user nonce for a MuSig2 input using State-Machine API
+    ///
+    /// This method uses the State-Machine API from the musig2 crate, which encapsulates
+    /// the SecNonce internally to prevent accidental reuse. This is the recommended
+    /// production API.
+    ///
+    /// # Arguments
+    /// * `input_index` - The index of the MuSig2 input
+    /// * `xpriv` - The user's extended private key (will be derived for the input)
+    /// * `session_id` - 32-byte session ID (use rand::thread_rng().gen() in production)
+    ///
+    /// # Returns
+    /// A tuple of (FirstRound, PubNonce) - keep FirstRound secret for signing later,
+    /// send PubNonce to the counterparty
+    pub fn generate_nonce_first_round(
+        &mut self,
+        input_index: usize,
+        xpriv: &miniscript::bitcoin::bip32::Xpriv,
+        session_id: [u8; 32],
+    ) -> Result<(musig2::FirstRound, musig2::PubNonce), String> {
+        let mut ctx = self.musig2_context(input_index)?;
+        ctx.generate_nonce_first_round(xpriv, session_id)
+            .map_err(|e| e.to_string())
+    }
+
+    /// Sign a MuSig2 input using State-Machine API
+    ///
+    /// This method uses the State-Machine API from the musig2 crate. The FirstRound
+    /// from nonce generation encapsulates the secret nonce, preventing reuse.
+    ///
+    /// # Arguments
+    /// * `input_index` - The index of the MuSig2 input
+    /// * `first_round` - The FirstRound from generate_nonce_first_round()
+    /// * `xpriv` - The user's extended private key
+    ///
+    /// # Returns
+    /// Ok(()) if the signature was successfully created and added to the PSBT
+    pub fn sign_with_first_round(
+        &mut self,
+        input_index: usize,
+        first_round: musig2::FirstRound,
+        xpriv: &miniscript::bitcoin::bip32::Xpriv,
+    ) -> Result<(), String> {
+        let mut ctx = self.musig2_context(input_index)?;
+        ctx.sign_with_first_round(first_round, xpriv)
+            .map_err(|e| e.to_string())
     }
 
     /// Sign the PSBT with the provided key.
@@ -454,22 +581,36 @@ mod tests {
         script_type: fixtures::ScriptType,
         unsigned_bitgo_psbt: &BitGoPsbt,
         halfsigned_bitgo_psbt: &BitGoPsbt,
-        wallet_keys: &fixtures::XprvTriple,
+        xpriv_triple: &fixtures::XprvTriple,
         input_index: usize,
     ) -> Result<(), String> {
-        let user_key = wallet_keys.user_key();
+        let user_xpriv = xpriv_triple.user_key();
 
         // Clone the unsigned PSBT and sign with user key
-        let mut signed_psbt = unsigned_bitgo_psbt.clone();
+        let mut unsigned_bitgo_psbt = unsigned_bitgo_psbt.clone();
         let secp = secp256k1::Secp256k1::new();
 
+        if script_type == fixtures::ScriptType::P2trMusig2TaprootKeypath {
+            // MuSig2 keypath: set nonces and sign with user key
+            p2tr_musig2_input::assert_set_nonce_and_sign_musig2_keypath(
+                xpriv_triple,
+                &mut unsigned_bitgo_psbt,
+                halfsigned_bitgo_psbt,
+                input_index,
+            )?;
+
+            // MuSig2 inputs use proprietary key values for partial signatures,
+            // not standard PSBT partial_sigs, so we're done
+            return Ok(());
+        }
+
         // Sign with user key using the new sign method
-        signed_psbt
-            .sign(user_key, &secp)
+        unsigned_bitgo_psbt
+            .sign(user_xpriv, &secp)
             .map_err(|(_num_keys, errors)| format!("Failed to sign PSBT: {:?}", errors))?;
 
         // Extract partial signatures from the signed input
-        let signed_input = match &signed_psbt {
+        let signed_input = match &unsigned_bitgo_psbt {
             BitGoPsbt::BitcoinLike(psbt, _) => &psbt.inputs[input_index],
             BitGoPsbt::Zcash(_, _) => {
                 return Err("Zcash signing not yet implemented".to_string());
@@ -631,21 +772,19 @@ mod tests {
 
         let psbt_input_stages = psbt_input_stages.unwrap();
 
-        if script_type != fixtures::ScriptType::P2trMusig2TaprootKeypath {
-            assert_half_sign(
-                script_type,
-                &psbt_stages
-                    .unsigned
-                    .to_bitgo_psbt(network)
-                    .expect("Failed to convert to BitGo PSBT"),
-                &psbt_stages
-                    .halfsigned
-                    .to_bitgo_psbt(network)
-                    .expect("Failed to convert to BitGo PSBT"),
-                &psbt_input_stages.wallet_keys,
-                psbt_input_stages.input_index,
-            )?;
-        }
+        assert_half_sign(
+            script_type,
+            &psbt_stages
+                .unsigned
+                .to_bitgo_psbt(network)
+                .expect("Failed to convert to BitGo PSBT"),
+            &psbt_stages
+                .halfsigned
+                .to_bitgo_psbt(network)
+                .expect("Failed to convert to BitGo PSBT"),
+            &psbt_input_stages.wallet_keys,
+            psbt_input_stages.input_index,
+        )?;
 
         assert_full_signed_matches_wallet_scripts(
             network,

@@ -52,6 +52,7 @@ jobs:
         run: |
           echo "node $(node --version)"
           echo "npm $(npm --version)"
+          echo "npx $(npx --version)"
           echo "rustc $(rustc --version)"
           echo "wasm-pack $(wasm-pack --version)"
           echo "wasm-opt $(wasm-opt --version)"
@@ -71,20 +72,21 @@ jobs:
         run: cargo deny check
         working-directory: packages/wasm-utxo
 
-      - name: test
-        run: npx --version
-
       - name: build packages
         run: npm --workspaces run build
 
       - name: Check Source Code Formatting
         run: npm run check-fmt
 
-      - name: Wasm-Pack Test (Node)
+      - name: wasm-utxo / cargo test
+        run: cargo test --workspace
+        working-directory: packages/wasm-utxo
+
+      - name: wasm-utxo / Wasm-Pack Test (Node)
         run: npm run test:wasm-pack-node
         working-directory: packages/wasm-utxo
 
-      - name: Wasm-Pack Test (Chrome)
+      - name: wasm-utxo / Wasm-Pack Test (Chrome)
         run: npm run test:wasm-pack-chrome
         working-directory: packages/wasm-utxo
 
