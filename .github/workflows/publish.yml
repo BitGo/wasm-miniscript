@@ -81,6 +81,6 @@ jobs:
         run: npm --workspaces test
 
       - name: Release
-        run: npx lerna publish --yes --no-verify-access --no-push
+        run: npx lerna publish --yes --no-push --loglevel verbose -- --loglevel verbose
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
